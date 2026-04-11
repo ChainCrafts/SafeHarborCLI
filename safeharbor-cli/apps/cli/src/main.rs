@@ -8,8 +8,7 @@ use std::path::PathBuf;
     version,
     about = "Protocol-aware Safe Harbor spec compiler for BattleChain"
 )]
-
-struct Cli{
+struct Cli {
     #[command(subcommand)]
     command: Commands,
 }
@@ -35,10 +34,9 @@ enum Commands {
     Status,
 }
 
-
 #[derive(Args, Debug)]
-struct CompileArgs{
-    //path to shcli config file
+struct CompileArgs {
+    /// Path to shcli config file
     #[arg(long, default_value = "shcli.toml")]
     config: PathBuf,
 }
@@ -54,15 +52,26 @@ struct ValidateArgs {
     schema: PathBuf,
 }
 
-
-fn main() -> Result<()>{
+fn main() -> Result<()> {
     let cli = Cli::parse();
+
     match cli.command {
         Commands::Compile(args) => {
-            println!("compile not wired yet: {:?}", args.config);
+            let cfg = config::load_config(&args.config)?;
+
+            println!("Loaded config successfully");
+            println!("  config      : {}", cfg.config_path.display());
+            println!("  workspace   : {}", cfg.workspace_root.display());
+            println!("  input       : {}", cfg.input_file().display());
+            println!("  schema      : {}", cfg.schema_file().display());
+            println!("  manifest out: {}", cfg.manifest_output().display());
+            println!("  summary out : {}", cfg.summary_output().display());
         }
         Commands::Validate(args) => {
-            println!("validate not wired yet: manifest={:?}, schema={:?}", args.manifest, args.schema);
+            println!(
+                "validate not wired yet: manifest={:?}, schema={:?}",
+                args.manifest, args.schema
+            );
         }
         Commands::Init => {
             println!("init is a shell stub in Phase 1");

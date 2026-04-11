@@ -1,0 +1,215 @@
+{
+  "schemaVersion": "1.0.0",
+  "manifestRevision": 1,
+  "manifestStatus": "final",
+  "protocol": {
+    "name": "SimpleVault",
+    "slug": "simple-vault",
+    "repository": "github.com/safeharbor-fixtures/simple-vault",
+    "repoCommit": "7f3c19a4d2e5b6c8f0a1d3e4b5c6d7e8f9a0b1c2",
+    "buildSystem": "foundry",
+    "compilerVersion": "0.8.26"
+  },
+  "source": {
+    "root": ".",
+    "primaryContracts": ["src/SimpleVault.sol"],
+    "artifactRefs": ["out/SimpleVault.sol/SimpleVault.json"]
+  },
+  "deployment": {
+    "chainId": 627,
+    "network": "battlechain-testnet",
+    "contracts": [
+      {
+        "name": "SimpleVault",
+        "address": "0x7d2b4f2c6b0e9b8d5c1a3f9e2d7c4b6a8f1e0c3d",
+        "abiRef": "out/SimpleVault.sol/SimpleVault.json#abi",
+        "bytecodeDigestAlgo": "keccak256",
+        "bytecodeHash": "0x3e4d5c6b7a8f90123456789abcdef00112233445566778899aabbccddeeff001"
+      }
+    ]
+  },
+  "adapters": {
+    "battlechain": {
+      "agreementAddress": "0x4a13d7c0b6e9f24c1d8a3e5b7f02c6d9a1e4b3f8",
+      "lifecycleState": "AGREEMENT_CREATED",
+      "bountyPct": 10,
+      "recoveryAddress": "0x91f0c3a7d4b8e2c6a1f5d9b3e7c0a4d8f2b6c1e5",
+      "commitmentWindowDays": 30
+    }
+  },
+  "scope": {
+    "contracts": [
+      {
+        "id": "vault_core",
+        "name": "SimpleVault",
+        "address": "0x7d2b4f2c6b0e9b8d5c1a3f9e2d7c4b6a8f1e0c3d",
+        "inScope": true,
+        "selectors": [
+          {
+            "selector": "0xb6b55f25",
+            "signature": "deposit(uint256)",
+            "payable": false,
+            "inScope": true,
+            "access": {
+              "kind": "permissionless"
+            }
+          },
+          {
+            "selector": "0x2e1a7d4d",
+            "signature": "withdraw(uint256)",
+            "payable": false,
+            "inScope": true,
+            "access": {
+              "kind": "permissionless"
+            }
+          },
+          {
+            "selector": "0x8456cb59",
+            "signature": "pause()",
+            "payable": false,
+            "inScope": true,
+            "access": {
+              "kind": "role_gated",
+              "requiredRoleIds": ["owner"]
+            }
+          },
+          {
+            "selector": "0x023b1fc9",
+            "signature": "setFeeBps(uint16)",
+            "payable": false,
+            "inScope": true,
+            "access": {
+              "kind": "role_gated",
+              "requiredRoleIds": ["owner"]
+            }
+          },
+          {
+            "selector": "0x5e318e07",
+            "signature": "withdrawFees(uint256)",
+            "payable": false,
+            "inScope": true,
+            "access": {
+              "kind": "role_gated",
+              "requiredRoleIds": ["owner"]
+            }
+          },
+          {
+            "selector": "0x33f3d628",
+            "signature": "rescueToken(address,uint256)",
+            "payable": false,
+            "inScope": false,
+            "access": {
+              "kind": "role_gated",
+              "requiredRoleIds": ["owner"]
+            },
+            "outOfScopeReason": "Emergency recovery path for accidental third-party token deposits. Excluded because the Phase 0 bounty scope is limited to native-asset custody, depositor accounting, pause control, and protocol-fee withdrawal."
+          }
+        ],
+        "specialEntrypoints": [
+          {
+            "entrypoint": "receive",
+            "payable": true,
+            "inScope": true,
+            "access": {
+              "kind": "permissionless"
+            }
+          }
+        ]
+      }
+    ],
+    "attackFlow": {
+      "allowedModes": ["single_tx"]
+    }
+  },
+  "roles": [
+    {
+      "id": "owner",
+      "label": "OWNER",
+      "holders": ["0x5e4a1c7d9b3f0a6d2c8e1b5f7a9c3d0e4b6f2a1c"],
+      "description": "Administrative authority for pausing the vault, changing fee configuration, and withdrawing accrued protocol fees."
+    }
+  ],
+  "invariants": [
+    {
+      "id": "INV-001",
+      "class": "structural",
+      "kind": "access_control",
+      "severity": "critical",
+      "description": "pause() and withdrawFees(uint256) must remain callable only by the owner role.",
+      "contracts": ["vault_core"],
+      "selectors": ["0x8456cb59", "0x5e318e07"],
+      "evidenceTypes": ["selector-access-breach", "trace", "state-diff"],
+      "rationale": "Modifier and selector-surface analysis identifies these as privileged control paths. Unauthorized execution would break the reviewed boundary between user flows and admin authority.",
+      "origin": {
+        "type": "structural",
+        "engine": "aderyn",
+        "detectorId": "access-control-surface"
+      },
+      "derivationConfidence": 0.99
+    },
+    {
+      "id": "INV-002",
+      "class": "semantic_template",
+      "kind": "pause_control",
+      "severity": "high",
+      "description": "When the recognized Pausable control template is active, deposit(uint256) and receive() must reject new user principal while paused.",
+      "contracts": ["vault_core"],
+      "selectors": ["0xb6b55f25"],
+      "specialEntrypoints": ["receive"],
+      "evidenceTypes": ["trace", "state-diff", "reproduction-script"],
+      "rationale": "This is a template-guided vault-entry expectation derived from a recognized pause-control pattern. It is a claim about standard pause semantics, not an inferred statement about arbitrary protocol economics.",
+      "origin": {
+        "type": "semantic_template",
+        "engine": "safeharbor-template-recognizer",
+        "templateId": "openzeppelin-pausable:user-entrypoint-guard",
+        "standardReference": "OpenZeppelin Contracts Pausable"
+      },
+      "derivationConfidence": 0.9
+    },
+    {
+      "id": "INV-003",
+      "class": "human_authored",
+      "kind": "fee_boundary",
+      "severity": "critical",
+      "description": "withdrawFees(uint256) may transfer only previously accrued protocol fees and must not reduce user-withdrawable principal or recorded depositor balances.",
+      "contracts": ["vault_core"],
+      "selectors": ["0x5e318e07"],
+      "evidenceTypes": ["trace", "state-diff", "balance-delta", "reproduction-script"],
+      "rationale": "SimpleVault intentionally separates depositor-owned principal from protocol fee accrual. The review target is any fee-withdrawal path that extracts depositor value instead of accrued fees only.",
+      "origin": {
+        "type": "human_authored",
+        "author": "phase0-editor",
+        "reviewer": "phase0-security-reviewer"
+      }
+    }
+  ],
+  "evidence": {
+    "acceptedTypes": [
+      "trace",
+      "state-diff",
+      "balance-delta",
+      "selector-access-breach",
+      "reproduction-script"
+    ],
+    "minimumRequired": ["trace", "reproduction-script"]
+  },
+  "review": {
+    "reviewedBy": ["SafeHarbor Phase 0 editor", "SafeHarbor security reviewer"],
+    "reviewedAt": "2026-04-11T00:00:00Z",
+    "notes": "Handwritten Phase 0 golden manifest for the SimpleVault fixture. This artifact freezes the target V1 compiled-manifest shape around reviewed scope, invariant provenance, evidence expectations, attack-flow constraints, and BattleChain adapter binding."
+  },
+  "provenance": {
+    "generatedBy": "phase0-handwritten-reference",
+    "generatedByVersion": "2026-04-11",
+    "analysisEngines": [
+      {
+        "name": "aderyn",
+        "role": "structural-analysis"
+      },
+      {
+        "name": "safeharbor-template-recognizer",
+        "role": "semantic-template-recognition"
+      }
+    ]
+  }
+}

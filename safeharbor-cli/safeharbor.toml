@@ -3,7 +3,6 @@ file = "examples/simple-vault/safeharbor.input.json"
 
 [output]
 manifest = "examples/simple-vault/out/safeharbor.manifest.json"
-summary = "examples/simple-vault/out/safeharbor.summary.md"
 
 [schema]
 file = "schemas/safeharbor.manifest.schema.json"

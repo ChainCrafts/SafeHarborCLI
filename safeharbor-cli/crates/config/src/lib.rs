@@ -6,6 +6,7 @@ use std::{
 };
 
 #[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct AppConfig {
     pub input: InputConfig,
     pub output: OutputConfig,
@@ -13,17 +14,19 @@ pub struct AppConfig {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct InputConfig {
     pub file: PathBuf,
 }
 
 #[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct OutputConfig {
     pub manifest: PathBuf,
-    pub summary: PathBuf,
 }
 
 #[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct SchemaConfig {
     pub file: PathBuf,
 }
@@ -44,10 +47,6 @@ impl LoadedConfig {
         self.workspace_root.join(&self.app.output.manifest)
     }
 
-    pub fn summary_output(&self) -> PathBuf {
-        self.workspace_root.join(&self.app.output.summary)
-    }
-
     pub fn schema_file(&self) -> PathBuf {
         self.workspace_root.join(&self.app.schema.file)
     }
@@ -60,8 +59,12 @@ pub fn load_config(config_path: &Path) -> Result<LoadedConfig> {
     let app: AppConfig = toml::from_str(&raw)
         .with_context(|| format!("failed to parse TOML config: {}", config_path.display()))?;
 
-    let config_path = fs::canonicalize(config_path)
-        .with_context(|| format!("failed to canonicalize config path: {}", config_path.display()))?;
+    let config_path = fs::canonicalize(config_path).with_context(|| {
+        format!(
+            "failed to canonicalize config path: {}",
+            config_path.display()
+        )
+    })?;
 
     let workspace_root = config_path
         .parent()
@@ -75,8 +78,6 @@ pub fn load_config(config_path: &Path) -> Result<LoadedConfig> {
     })
 }
 
-
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -89,10 +90,58 @@ mod tests {
             .unwrap()
             .as_nanos();
 
-        let temp_root = std::env::temp_dir().join(format!("shcli-config-test-{unique}"));
+        let temp_root = std::env::temp_dir().join(format!("safeharbor-config-test-{unique}"));
         std::fs::create_dir_all(&temp_root).unwrap();
 
-        let config_path = temp_root.join("shcli.toml");
+        let config_path = temp_root.join("safeharbor.toml");
+        std::fs::write(
+            &config_path,
+            r#"
+[input]
+file = "examples/simple-vault/safeharbor.input.json"
+
+[output]
+manifest = "out/safeharbor.manifest.json"
+
+[schema]
+file = "schemas/safeharbor.manifest.schema.json"
+"#,
+        )
+        .unwrap();
+
+        let loaded = load_config(&config_path).unwrap();
+
+        assert_eq!(loaded.workspace_root, temp_root.canonicalize().unwrap());
+        assert!(
+            loaded
+                .input_file()
+                .ends_with("examples/simple-vault/safeharbor.input.json")
+        );
+        assert!(
+            loaded
+                .manifest_output()
+                .ends_with("out/safeharbor.manifest.json")
+        );
+        assert!(
+            loaded
+                .schema_file()
+                .ends_with("schemas/safeharbor.manifest.schema.json")
+        );
+
+        std::fs::remove_dir_all(temp_root).unwrap();
+    }
+
+    #[test]
+    fn rejects_unknown_config_keys() {
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+
+        let temp_root = std::env::temp_dir().join(format!("safeharbor-config-test-{unique}"));
+        std::fs::create_dir_all(&temp_root).unwrap();
+
+        let config_path = temp_root.join("safeharbor.toml");
         std::fs::write(
             &config_path,
             r#"
@@ -109,13 +158,9 @@ file = "schemas/safeharbor.manifest.schema.json"
         )
         .unwrap();
 
-        let loaded = load_config(&config_path).unwrap();
-
-        assert_eq!(loaded.workspace_root, temp_root.canonicalize().unwrap());
-        assert!(loaded.input_file().ends_with("examples/simple-vault/safeharbor.input.json"));
-        assert!(loaded.manifest_output().ends_with("out/safeharbor.manifest.json"));
-        assert!(loaded.summary_output().ends_with("out/safeharbor.summary.md"));
-        assert!(loaded.schema_file().ends_with("schemas/safeharbor.manifest.schema.json"));
+        let err = load_config(&config_path).unwrap_err();
+        let msg = format!("{err:#}");
+        assert!(msg.contains("unknown field `summary`"));
 
         std::fs::remove_dir_all(temp_root).unwrap();
     }

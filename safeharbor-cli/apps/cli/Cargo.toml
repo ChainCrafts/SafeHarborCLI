@@ -8,3 +8,4 @@ anyhow.workspace = true
 clap.workspace = true
 config = { path = "../../crates/config" }
 compiler = { path = "../../crates/compiler" }
+manifest = { path = "../../crates/manifest" }

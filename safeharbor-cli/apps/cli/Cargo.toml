@@ -1,0 +1,10 @@
+[package]
+name = "shcli"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+clap.workspace = true
+config = { path = "../../crates/config" }
+compiler = { path = "../../crates/compiler" }

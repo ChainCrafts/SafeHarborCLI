@@ -1,0 +1,21 @@
+[workspace]
+members = [
+  "apps/cli",
+  "crates/config",
+  "crates/manifest",
+  "crates/compiler"
+]
+resolver = "2"
+
+[workspace.package]
+edition = "2024"
+version = "0.1.0"
+
+[workspace.dependencies]
+anyhow = "1"
+clap = { version = "4", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+toml = "0.8"
+jsonschema = "0.46"

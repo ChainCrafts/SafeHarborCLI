@@ -54,3 +54,5 @@ BattleChain metadata stays under `adapters.battlechain` and only carries agreeme
 ## Phase 0 Use
 
 Use this manifest and its summary as the Phase 0 reference when judging schema changes, review semantics, and future `shcli compile` output. If a schema proposal cannot express this artifact cleanly, the proposal is pushing against the target rather than clarifying it.
+
+In Phase 1, `shcli compile` is only a static-input-to-manifest emission step. It loads reviewed static input, validates the emitted manifest against `schemas/safeharbor.manifest.schema.json`, and writes canonical JSON. It does not scan contracts, infer scope, or attach live BattleChain state.

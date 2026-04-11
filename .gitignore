@@ -1,0 +1,6 @@
+.DS_Store
+*.swp
+*.swo
+*~
+safeharbor-cli/target/
+safeharbor-cli/examples/simple-vault/out/

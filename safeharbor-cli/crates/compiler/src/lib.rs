@@ -75,9 +75,12 @@ mod tests {
         let compiled = compile_static_input(&input_path, &schema_path, &output_path).unwrap();
         let emitted = read_manifest(&output_path).unwrap();
         let expected = read_manifest(&expected_path).unwrap();
+        let emitted_bytes = std::fs::read_to_string(&output_path).unwrap();
+        let expected_bytes = std::fs::read_to_string(&expected_path).unwrap();
 
         assert_eq!(compiled, expected);
         assert_eq!(emitted, expected);
+        assert_eq!(emitted_bytes, expected_bytes);
         validate_file(&output_path, &schema_path).unwrap();
 
         std::fs::remove_dir_all(dir).unwrap();

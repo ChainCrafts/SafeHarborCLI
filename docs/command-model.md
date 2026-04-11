@@ -45,7 +45,7 @@ This is the default operator path the rest of the docs should assume.
 - emits `safeharbor.summary.md`
 - emits only finalized scope, roles, invariants, evidence, and adapter linkage
 - is the first step in the happy path that emits the canonical manifest artifact
-- the Phase 0 handwritten target artifact is `examples/golden/simple-vault.safeharbor.manifest.json` with companion summary `examples/golden/simple-vault.summary.md`
+- the Phase 0 handwritten target artifact is `safeharbor-cli/examples/simple-vault/expected.safeharbor.manifest.json` with companion summary `safeharbor-cli/examples/simple-vault/expected.summary.md`
 
 `shcli battlechain prepare`
 

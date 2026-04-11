@@ -11,7 +11,7 @@ use std::{
 #[command(
     name = "shcli",
     version,
-    about = "Protocol-aware Safe Harbor spec compiler for BattleChain"
+    about = "Phase 1 CLI for emitting and validating Safe Harbor manifests from static input"
 )]
 struct Cli {
     #[command(subcommand)]
@@ -20,7 +20,7 @@ struct Cli {
 
 #[derive(Subcommand, Debug)]
 enum Commands {
-    /// Compile a Safe Harbor manifest from static input
+    /// Emit a Safe Harbor manifest from static input
     Compile(CompileArgs),
 
     /// Validate a manifest against the schema
@@ -29,7 +29,7 @@ enum Commands {
 
 #[derive(Args, Debug)]
 struct CompileArgs {
-    /// Path to Safe Harbor config file
+    /// Path to Safe Harbor config file for static input emission
     #[arg(long, default_value = "safeharbor.toml")]
     config: PathBuf,
 }
@@ -58,7 +58,7 @@ fn main() -> Result<()> {
                 &cfg.manifest_output(),
             )?;
 
-            println!("Compiled manifest successfully");
+            println!("Emitted manifest successfully");
             println!("  config      : {}", cfg.config_path.display());
             println!("  input       : {}", cfg.input_file().display());
             println!("  schema      : {}", cfg.schema_file().display());

@@ -4,7 +4,7 @@ The compiled SafeHarbor manifest only ships accepted invariants.
 
 Rejected, proposed, and partially edited candidates belong to review workspace state, not to the canonical compiled manifest JSON.
 
-The Phase 0 reference artifact that exercises all three invariant classes lives at `examples/golden/simple-vault.safeharbor.manifest.json`, with the companion explanation in `examples/golden/simple-vault.summary.md`.
+The Phase 0 reference artifact that exercises all three invariant classes lives at `safeharbor-cli/examples/simple-vault/expected.safeharbor.manifest.json`, with the companion explanation in `safeharbor-cli/examples/simple-vault/expected.summary.md`.
 
 Each compiled invariant in V1 has this shape:
 

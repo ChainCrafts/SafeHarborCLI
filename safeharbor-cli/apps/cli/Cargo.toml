@@ -6,6 +6,11 @@ edition.workspace = true
 [dependencies]
 anyhow.workspace = true
 clap.workspace = true
+analyzer = { path = "../../crates/analyzer" }
 config = { path = "../../crates/config" }
 compiler = { path = "../../crates/compiler" }
 manifest = { path = "../../crates/manifest" }
+structural-extractor = { path = "../../crates/structural-extractor" }
+
+[dev-dependencies]
+serde_json.workspace = true

@@ -3,7 +3,9 @@ members = [
   "apps/cli",
   "crates/config",
   "crates/manifest",
-  "crates/compiler"
+  "crates/compiler",
+  "crates/analyzer",
+  "crates/structural-extractor"
 ]
 resolver = "2"
 

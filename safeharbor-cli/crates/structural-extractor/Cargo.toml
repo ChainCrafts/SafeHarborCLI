@@ -1,0 +1,8 @@
+[package]
+name = "structural-extractor"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+analyzer = { path = "../analyzer" }
+serde.workspace = true

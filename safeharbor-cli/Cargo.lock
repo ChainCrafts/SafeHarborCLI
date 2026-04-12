@@ -32,6 +32,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "683d7910e743518b0e34f1186f92494becacb047c7b6bf616c96772180fef923"
 
 [[package]]
+name = "analyzer"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "anstream"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1398,11 +1407,14 @@ dependencies = [
 name = "shcli"
 version = "0.1.0"
 dependencies = [
+ "analyzer",
  "anyhow",
  "clap",
  "compiler",
  "config",
  "manifest",
+ "serde_json",
+ "structural-extractor",
 ]
 
 [[package]]
@@ -1444,6 +1456,14 @@ name = "strsim"
 version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7da8b5736845d9f2fcb837ea5d9e2628564b3b043a70948a3f0b778838c5fb4f"
+
+[[package]]
+name = "structural-extractor"
+version = "0.1.0"
+dependencies = [
+ "analyzer",
+ "serde",
+]
 
 [[package]]
 name = "subtle"

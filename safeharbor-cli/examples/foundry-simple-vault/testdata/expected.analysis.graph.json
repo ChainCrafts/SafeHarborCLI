@@ -1,0 +1,375 @@
+{
+  "metadata": {
+    "schema_version": "analysis_graph/v1",
+    "generated_at": "1970-01-01T00:00:00Z",
+    "tool_version": "0.1.0",
+    "repo_root": ".",
+    "input_digest": "813ecb3932918bc937c7a69dd4bd3993b4054e059a9e253d4ae8441c959f458d",
+    "aderyn_version": "mock-aderyn 0.1.0",
+    "forge_version": "forge Version: 1.5.1-stable\nCommit SHA: b0a9dd9ceda36f63e2326ce530c10e6916f4b8a2\nBuild Timestamp: 2025-12-22T11:39:01.425730780Z (1766403541)\nBuild Profile: maxperf"
+  },
+  "normalized_facts": {
+    "project": {
+      "build_system": "foundry",
+      "foundry_config_path": "foundry.toml",
+      "src_dir": "src",
+      "test_dir": "test",
+      "script_dir": "script",
+      "libs": [
+        "lib"
+      ],
+      "artifact_dir": "out"
+    },
+    "contracts": [
+      {
+        "id": "src/SimpleVault.sol:SimpleVault",
+        "name": "SimpleVault",
+        "source_path": "src/SimpleVault.sol",
+        "kind": "contract",
+        "bases": [],
+        "artifact_ref": "out/SimpleVault.sol/SimpleVault.json"
+      }
+    ],
+    "functions": [
+      {
+        "id": "src/SimpleVault.sol:SimpleVault#constructor",
+        "contract_id": "src/SimpleVault.sol:SimpleVault",
+        "name": "constructor",
+        "signature": null,
+        "selector": null,
+        "entrypoint_kind": "constructor",
+        "visibility": "public",
+        "state_mutability": "payable",
+        "modifiers": [],
+        "auth_signals": [],
+        "calls": []
+      },
+      {
+        "id": "src/SimpleVault.sol:SimpleVault#deposit()",
+        "contract_id": "src/SimpleVault.sol:SimpleVault",
+        "name": "deposit",
+        "signature": "deposit()",
+        "selector": "0xd0e30db0",
+        "entrypoint_kind": "normal",
+        "visibility": "external",
+        "state_mutability": "payable",
+        "modifiers": [
+          "whenNotPaused"
+        ],
+        "auth_signals": [],
+        "calls": []
+      },
+      {
+        "id": "src/SimpleVault.sol:SimpleVault#pause()",
+        "contract_id": "src/SimpleVault.sol:SimpleVault",
+        "name": "pause",
+        "signature": "pause()",
+        "selector": "0x8456cb59",
+        "entrypoint_kind": "normal",
+        "visibility": "external",
+        "state_mutability": "nonpayable",
+        "modifiers": [
+          "onlyOwner"
+        ],
+        "auth_signals": [
+          {
+            "kind": "only_owner_modifier",
+            "source": "modifier_invocation",
+            "role": "owner",
+            "evidence": "modifier onlyOwner",
+            "confidence": 0.99
+          },
+          {
+            "kind": "only_owner_modifier",
+            "source": "modifier_definition",
+            "role": "owner",
+            "evidence": "modifier onlyOwner",
+            "confidence": 0.99
+          },
+          {
+            "kind": "owner_check",
+            "source": "modifier_definition",
+            "role": "owner",
+            "evidence": "msg.sender == owner",
+            "confidence": 0.95
+          }
+        ],
+        "calls": []
+      },
+      {
+        "id": "src/SimpleVault.sol:SimpleVault#receive",
+        "contract_id": "src/SimpleVault.sol:SimpleVault",
+        "name": "receive",
+        "signature": null,
+        "selector": null,
+        "entrypoint_kind": "receive",
+        "visibility": "external",
+        "state_mutability": "payable",
+        "modifiers": [],
+        "auth_signals": [],
+        "calls": []
+      },
+      {
+        "id": "src/SimpleVault.sol:SimpleVault#setFeeRecipient(address)",
+        "contract_id": "src/SimpleVault.sol:SimpleVault",
+        "name": "setFeeRecipient",
+        "signature": "setFeeRecipient(address)",
+        "selector": "0xe74b981b",
+        "entrypoint_kind": "normal",
+        "visibility": "external",
+        "state_mutability": "nonpayable",
+        "modifiers": [
+          "onlyOwner"
+        ],
+        "auth_signals": [
+          {
+            "kind": "only_owner_modifier",
+            "source": "modifier_invocation",
+            "role": "owner",
+            "evidence": "modifier onlyOwner",
+            "confidence": 0.99
+          },
+          {
+            "kind": "only_owner_modifier",
+            "source": "modifier_definition",
+            "role": "owner",
+            "evidence": "modifier onlyOwner",
+            "confidence": 0.99
+          },
+          {
+            "kind": "owner_check",
+            "source": "modifier_definition",
+            "role": "owner",
+            "evidence": "msg.sender == owner",
+            "confidence": 0.95
+          }
+        ],
+        "calls": []
+      },
+      {
+        "id": "src/SimpleVault.sol:SimpleVault#unpause()",
+        "contract_id": "src/SimpleVault.sol:SimpleVault",
+        "name": "unpause",
+        "signature": "unpause()",
+        "selector": "0x3f4ba83a",
+        "entrypoint_kind": "normal",
+        "visibility": "external",
+        "state_mutability": "nonpayable",
+        "modifiers": [
+          "onlyOwner"
+        ],
+        "auth_signals": [
+          {
+            "kind": "only_owner_modifier",
+            "source": "modifier_invocation",
+            "role": "owner",
+            "evidence": "modifier onlyOwner",
+            "confidence": 0.99
+          },
+          {
+            "kind": "only_owner_modifier",
+            "source": "modifier_definition",
+            "role": "owner",
+            "evidence": "modifier onlyOwner",
+            "confidence": 0.99
+          },
+          {
+            "kind": "owner_check",
+            "source": "modifier_definition",
+            "role": "owner",
+            "evidence": "msg.sender == owner",
+            "confidence": 0.95
+          }
+        ],
+        "calls": []
+      },
+      {
+        "id": "src/SimpleVault.sol:SimpleVault#upgradeTo(address)",
+        "contract_id": "src/SimpleVault.sol:SimpleVault",
+        "name": "upgradeTo",
+        "signature": "upgradeTo(address)",
+        "selector": "0x3659cfe6",
+        "entrypoint_kind": "normal",
+        "visibility": "external",
+        "state_mutability": "nonpayable",
+        "modifiers": [
+          "onlyOwner"
+        ],
+        "auth_signals": [
+          {
+            "kind": "only_owner_modifier",
+            "source": "modifier_invocation",
+            "role": "owner",
+            "evidence": "modifier onlyOwner",
+            "confidence": 0.99
+          },
+          {
+            "kind": "only_owner_modifier",
+            "source": "modifier_definition",
+            "role": "owner",
+            "evidence": "modifier onlyOwner",
+            "confidence": 0.99
+          },
+          {
+            "kind": "owner_check",
+            "source": "modifier_definition",
+            "role": "owner",
+            "evidence": "msg.sender == owner",
+            "confidence": 0.95
+          }
+        ],
+        "calls": []
+      },
+      {
+        "id": "src/SimpleVault.sol:SimpleVault#withdraw(uint256)",
+        "contract_id": "src/SimpleVault.sol:SimpleVault",
+        "name": "withdraw",
+        "signature": "withdraw(uint256)",
+        "selector": "0x2e1a7d4d",
+        "entrypoint_kind": "normal",
+        "visibility": "external",
+        "state_mutability": "nonpayable",
+        "modifiers": [
+          "whenNotPaused"
+        ],
+        "auth_signals": [],
+        "calls": [
+          {
+            "kind": "call",
+            "target": "(msg.sender)",
+            "evidence": "()"
+          }
+        ]
+      },
+      {
+        "id": "src/SimpleVault.sol:SimpleVault#withdrawFees(uint256)",
+        "contract_id": "src/SimpleVault.sol:SimpleVault",
+        "name": "withdrawFees",
+        "signature": "withdrawFees(uint256)",
+        "selector": "0x5e318e07",
+        "entrypoint_kind": "normal",
+        "visibility": "external",
+        "state_mutability": "nonpayable",
+        "modifiers": [
+          "onlyOwner"
+        ],
+        "auth_signals": [
+          {
+            "kind": "only_owner_modifier",
+            "source": "modifier_invocation",
+            "role": "owner",
+            "evidence": "modifier onlyOwner",
+            "confidence": 0.99
+          },
+          {
+            "kind": "only_owner_modifier",
+            "source": "modifier_definition",
+            "role": "owner",
+            "evidence": "modifier onlyOwner",
+            "confidence": 0.99
+          },
+          {
+            "kind": "owner_check",
+            "source": "modifier_definition",
+            "role": "owner",
+            "evidence": "msg.sender == owner",
+            "confidence": 0.95
+          }
+        ],
+        "calls": [
+          {
+            "kind": "call",
+            "target": "(feeRecipient)",
+            "evidence": "()"
+          }
+        ]
+      }
+    ],
+    "modifiers": [
+      {
+        "id": "src/SimpleVault.sol:SimpleVault#modifier:onlyOwner",
+        "contract_id": "src/SimpleVault.sol:SimpleVault",
+        "name": "onlyOwner",
+        "source_path": "src/SimpleVault.sol",
+        "auth_signals": [
+          {
+            "kind": "only_owner_modifier",
+            "source": "modifier_definition",
+            "role": "owner",
+            "evidence": "modifier onlyOwner",
+            "confidence": 0.99
+          },
+          {
+            "kind": "owner_check",
+            "source": "modifier_definition",
+            "role": "owner",
+            "evidence": "msg.sender == owner",
+            "confidence": 0.95
+          }
+        ]
+      },
+      {
+        "id": "src/SimpleVault.sol:SimpleVault#modifier:whenNotPaused",
+        "contract_id": "src/SimpleVault.sol:SimpleVault",
+        "name": "whenNotPaused",
+        "source_path": "src/SimpleVault.sol",
+        "auth_signals": []
+      }
+    ],
+    "inheritance": []
+  },
+  "detector_findings": [
+    {
+      "detector_id": "centralization-risk",
+      "severity": "high",
+      "title": "Privileged upgrade path",
+      "description": "upgradeTo(address) is an owner-controlled implementation pivot.",
+      "locations": [
+        {
+          "contract_path": "src/SimpleVault.sol",
+          "line_no": 60,
+          "src": "0:0:0",
+          "src_char": "0:0",
+          "hint": "upgradeTo(address)"
+        }
+      ]
+    },
+    {
+      "detector_id": "payable-surface",
+      "severity": "low",
+      "title": "Payable deposit entrypoint",
+      "description": "deposit() and receive() both accept ETH.",
+      "locations": [
+        {
+          "contract_path": "src/SimpleVault.sol",
+          "line_no": 27,
+          "src": "0:0:0",
+          "src_char": "0:0",
+          "hint": "deposit()"
+        },
+        {
+          "contract_path": "src/SimpleVault.sol",
+          "line_no": 64,
+          "src": "0:0:0",
+          "src_char": "0:0",
+          "hint": "receive()"
+        }
+      ]
+    },
+    {
+      "detector_id": "privileged-transfer",
+      "severity": "high",
+      "title": "Owner-controlled fee withdrawal",
+      "description": "withdrawFees(uint256) transfers protocol fees to the configured recipient.",
+      "locations": [
+        {
+          "contract_path": "src/SimpleVault.sol",
+          "line_no": 49,
+          "src": "0:0:0",
+          "src_char": "0:0",
+          "hint": "withdrawFees(uint256)"
+        }
+      ]
+    }
+  ]
+}

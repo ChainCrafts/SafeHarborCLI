@@ -1,0 +1,373 @@
+{
+  "metadata": {
+    "schema_version": "structural_candidates/v1",
+    "generated_at": "1970-01-01T00:00:00Z",
+    "tool_version": "0.1.0",
+    "repo_root": ".",
+    "input_digest": "813ecb3932918bc937c7a69dd4bd3993b4054e059a9e253d4ae8441c959f458d",
+    "aderyn_version": "mock-aderyn 0.1.0",
+    "forge_version": "forge Version: 1.5.1-stable\nCommit SHA: b0a9dd9ceda36f63e2326ce530c10e6916f4b8a2\nBuild Timestamp: 2025-12-22T11:39:01.425730780Z (1766403541)\nBuild Profile: maxperf"
+  },
+  "extracted_candidates": {
+    "scope_candidates": [
+      {
+        "contract_id": "src/SimpleVault.sol:SimpleVault",
+        "contract_name": "SimpleVault",
+        "source_path": "src/SimpleVault.sol",
+        "candidate_in_scope": true,
+        "reason": "concrete contract exposes public or external callable surfaces",
+        "confidence": 0.87,
+        "tags": [
+          "admin_control",
+          "implementation_like"
+        ]
+      }
+    ],
+    "selector_candidates": [
+      {
+        "function_id": "src/SimpleVault.sol:SimpleVault#deposit()",
+        "contract_id": "src/SimpleVault.sol:SimpleVault",
+        "signature": "deposit()",
+        "selector": "0xd0e30db0",
+        "entrypoint_kind": "normal",
+        "visibility": "external",
+        "state_mutability": "payable",
+        "payable": true,
+        "exposure_class": "external_function",
+        "privilege_class": "unclassified",
+        "role_hints": [],
+        "provenance": [
+          "analysis_graph.functions"
+        ],
+        "confidence": 0.78
+      },
+      {
+        "function_id": "src/SimpleVault.sol:SimpleVault#pause()",
+        "contract_id": "src/SimpleVault.sol:SimpleVault",
+        "signature": "pause()",
+        "selector": "0x8456cb59",
+        "entrypoint_kind": "normal",
+        "visibility": "external",
+        "state_mutability": "nonpayable",
+        "payable": false,
+        "exposure_class": "external_function",
+        "privilege_class": "privileged",
+        "role_hints": [
+          "owner"
+        ],
+        "provenance": [
+          "analysis_graph.auth_signals",
+          "analysis_graph.functions"
+        ],
+        "confidence": 0.97
+      },
+      {
+        "function_id": "src/SimpleVault.sol:SimpleVault#receive",
+        "contract_id": "src/SimpleVault.sol:SimpleVault",
+        "signature": null,
+        "selector": null,
+        "entrypoint_kind": "receive",
+        "visibility": "external",
+        "state_mutability": "payable",
+        "payable": true,
+        "exposure_class": "receive",
+        "privilege_class": "unclassified",
+        "role_hints": [],
+        "provenance": [
+          "analysis_graph.functions"
+        ],
+        "confidence": 0.78
+      },
+      {
+        "function_id": "src/SimpleVault.sol:SimpleVault#setFeeRecipient(address)",
+        "contract_id": "src/SimpleVault.sol:SimpleVault",
+        "signature": "setFeeRecipient(address)",
+        "selector": "0xe74b981b",
+        "entrypoint_kind": "normal",
+        "visibility": "external",
+        "state_mutability": "nonpayable",
+        "payable": false,
+        "exposure_class": "external_function",
+        "privilege_class": "privileged",
+        "role_hints": [
+          "owner"
+        ],
+        "provenance": [
+          "analysis_graph.auth_signals",
+          "analysis_graph.functions"
+        ],
+        "confidence": 0.97
+      },
+      {
+        "function_id": "src/SimpleVault.sol:SimpleVault#unpause()",
+        "contract_id": "src/SimpleVault.sol:SimpleVault",
+        "signature": "unpause()",
+        "selector": "0x3f4ba83a",
+        "entrypoint_kind": "normal",
+        "visibility": "external",
+        "state_mutability": "nonpayable",
+        "payable": false,
+        "exposure_class": "external_function",
+        "privilege_class": "privileged",
+        "role_hints": [
+          "owner"
+        ],
+        "provenance": [
+          "analysis_graph.auth_signals",
+          "analysis_graph.functions"
+        ],
+        "confidence": 0.97
+      },
+      {
+        "function_id": "src/SimpleVault.sol:SimpleVault#upgradeTo(address)",
+        "contract_id": "src/SimpleVault.sol:SimpleVault",
+        "signature": "upgradeTo(address)",
+        "selector": "0x3659cfe6",
+        "entrypoint_kind": "normal",
+        "visibility": "external",
+        "state_mutability": "nonpayable",
+        "payable": false,
+        "exposure_class": "external_function",
+        "privilege_class": "privileged",
+        "role_hints": [
+          "owner"
+        ],
+        "provenance": [
+          "analysis_graph.auth_signals",
+          "analysis_graph.functions"
+        ],
+        "confidence": 0.97
+      },
+      {
+        "function_id": "src/SimpleVault.sol:SimpleVault#withdraw(uint256)",
+        "contract_id": "src/SimpleVault.sol:SimpleVault",
+        "signature": "withdraw(uint256)",
+        "selector": "0x2e1a7d4d",
+        "entrypoint_kind": "normal",
+        "visibility": "external",
+        "state_mutability": "nonpayable",
+        "payable": false,
+        "exposure_class": "external_function",
+        "privilege_class": "unclassified",
+        "role_hints": [],
+        "provenance": [
+          "analysis_graph.calls",
+          "analysis_graph.functions"
+        ],
+        "confidence": 0.78
+      },
+      {
+        "function_id": "src/SimpleVault.sol:SimpleVault#withdrawFees(uint256)",
+        "contract_id": "src/SimpleVault.sol:SimpleVault",
+        "signature": "withdrawFees(uint256)",
+        "selector": "0x5e318e07",
+        "entrypoint_kind": "normal",
+        "visibility": "external",
+        "state_mutability": "nonpayable",
+        "payable": false,
+        "exposure_class": "external_function",
+        "privilege_class": "privileged",
+        "role_hints": [
+          "owner"
+        ],
+        "provenance": [
+          "analysis_graph.auth_signals",
+          "analysis_graph.calls",
+          "analysis_graph.functions"
+        ],
+        "confidence": 0.97
+      }
+    ],
+    "role_candidates": [
+      {
+        "role": "owner",
+        "contract_ids": [
+          "src/SimpleVault.sol:SimpleVault"
+        ],
+        "function_ids": [
+          "src/SimpleVault.sol:SimpleVault#pause()",
+          "src/SimpleVault.sol:SimpleVault#setFeeRecipient(address)",
+          "src/SimpleVault.sol:SimpleVault#unpause()",
+          "src/SimpleVault.sol:SimpleVault#upgradeTo(address)",
+          "src/SimpleVault.sol:SimpleVault#withdrawFees(uint256)"
+        ],
+        "selectors": [
+          "0x3659cfe6",
+          "0x3f4ba83a",
+          "0x5e318e07",
+          "0x8456cb59",
+          "0xe74b981b"
+        ],
+        "entrypoints": [],
+        "evidence": [
+          "modifier onlyOwner",
+          "msg.sender == owner"
+        ],
+        "provenance": [
+          "analysis_graph.auth_signals"
+        ],
+        "confidence": 0.99
+      }
+    ],
+    "structural_invariant_candidates": [
+      {
+        "id": "access-owner",
+        "kind": "access_control_surface",
+        "title": "owner-gated callable surfaces",
+        "contract_ids": [
+          "src/SimpleVault.sol:SimpleVault"
+        ],
+        "function_ids": [
+          "src/SimpleVault.sol:SimpleVault#pause()",
+          "src/SimpleVault.sol:SimpleVault#setFeeRecipient(address)",
+          "src/SimpleVault.sol:SimpleVault#unpause()",
+          "src/SimpleVault.sol:SimpleVault#upgradeTo(address)",
+          "src/SimpleVault.sol:SimpleVault#withdrawFees(uint256)"
+        ],
+        "selectors": [
+          "0x3659cfe6",
+          "0x3f4ba83a",
+          "0x5e318e07",
+          "0x8456cb59",
+          "0xe74b981b"
+        ],
+        "entrypoints": [],
+        "evidence": [
+          "modifier onlyOwner",
+          "msg.sender == owner"
+        ],
+        "provenance": [
+          "analysis_graph.auth_signals"
+        ],
+        "confidence": 0.99
+      },
+      {
+        "id": "external-call-surfaces",
+        "kind": "external_call_surface",
+        "title": "external call surfaces",
+        "contract_ids": [
+          "src/SimpleVault.sol:SimpleVault"
+        ],
+        "function_ids": [
+          "src/SimpleVault.sol:SimpleVault#withdraw(uint256)",
+          "src/SimpleVault.sol:SimpleVault#withdrawFees(uint256)"
+        ],
+        "selectors": [
+          "0x2e1a7d4d",
+          "0x5e318e07"
+        ],
+        "entrypoints": [],
+        "evidence": [
+          "()"
+        ],
+        "provenance": [
+          "analysis_graph.calls"
+        ],
+        "confidence": 0.93
+      },
+      {
+        "id": "fee-withdrawal",
+        "kind": "fee_withdrawal_surface",
+        "title": "fee and admin withdrawal surfaces",
+        "contract_ids": [
+          "src/SimpleVault.sol:SimpleVault"
+        ],
+        "function_ids": [
+          "src/SimpleVault.sol:SimpleVault#withdrawFees(uint256)"
+        ],
+        "selectors": [
+          "0x5e318e07"
+        ],
+        "entrypoints": [],
+        "evidence": [
+          "withdrawFees(uint256)"
+        ],
+        "provenance": [
+          "analysis_graph.functions"
+        ],
+        "confidence": 0.92
+      },
+      {
+        "id": "pause-control",
+        "kind": "pause_control",
+        "title": "pause and unpause controls",
+        "contract_ids": [
+          "src/SimpleVault.sol:SimpleVault"
+        ],
+        "function_ids": [
+          "src/SimpleVault.sol:SimpleVault#pause()",
+          "src/SimpleVault.sol:SimpleVault#unpause()"
+        ],
+        "selectors": [
+          "0x3f4ba83a",
+          "0x8456cb59"
+        ],
+        "entrypoints": [],
+        "evidence": [
+          "pause()",
+          "unpause()"
+        ],
+        "provenance": [
+          "analysis_graph.functions"
+        ],
+        "confidence": 0.92
+      },
+      {
+        "id": "payable-entrypoints",
+        "kind": "payable_entrypoint",
+        "title": "payable entrypoints",
+        "contract_ids": [
+          "src/SimpleVault.sol:SimpleVault"
+        ],
+        "function_ids": [
+          "src/SimpleVault.sol:SimpleVault#deposit()",
+          "src/SimpleVault.sol:SimpleVault#receive"
+        ],
+        "selectors": [
+          "0xd0e30db0"
+        ],
+        "entrypoints": [
+          "receive"
+        ],
+        "evidence": [
+          "Receive",
+          "deposit()"
+        ],
+        "provenance": [
+          "analysis_graph.functions"
+        ],
+        "confidence": 0.99
+      },
+      {
+        "id": "upgrade-control",
+        "kind": "upgrade_control",
+        "title": "upgrade entrypoints",
+        "contract_ids": [
+          "src/SimpleVault.sol:SimpleVault"
+        ],
+        "function_ids": [
+          "src/SimpleVault.sol:SimpleVault#upgradeTo(address)"
+        ],
+        "selectors": [
+          "0x3659cfe6"
+        ],
+        "entrypoints": [],
+        "evidence": [
+          "upgradeTo(address)"
+        ],
+        "provenance": [
+          "analysis_graph.functions"
+        ],
+        "confidence": 0.92
+      }
+    ]
+  },
+  "summary": {
+    "contract_count": 1,
+    "external_public_selector_count": 7,
+    "privileged_selector_count": 5,
+    "payable_entrypoint_count": 2,
+    "role_candidate_count": 1,
+    "upgrade_surface_count": 1
+  }
+}

@@ -1,0 +1,80 @@
+{
+  "files_summary": {
+    "total_source_units": 1,
+    "total_sloc": 60
+  },
+  "files_details": {
+    "files_details": [
+      {
+        "file_path": "src/SimpleVault.sol",
+        "n_sloc": 60
+      }
+    ]
+  },
+  "issue_count": {
+    "high": 2,
+    "low": 1
+  },
+  "high_issues": {
+    "issues": [
+      {
+        "title": "Privileged upgrade path",
+        "description": "upgradeTo(address) is an owner-controlled implementation pivot.",
+        "detector_name": "centralization-risk",
+        "instances": [
+          {
+            "contract_path": "src/SimpleVault.sol",
+            "line_no": 60,
+            "src": "0:0:0",
+            "src_char": "0:0",
+            "hint": "upgradeTo(address)"
+          }
+        ]
+      },
+      {
+        "title": "Owner-controlled fee withdrawal",
+        "description": "withdrawFees(uint256) transfers protocol fees to the configured recipient.",
+        "detector_name": "privileged-transfer",
+        "instances": [
+          {
+            "contract_path": "src/SimpleVault.sol",
+            "line_no": 49,
+            "src": "0:0:0",
+            "src_char": "0:0",
+            "hint": "withdrawFees(uint256)"
+          }
+        ]
+      }
+    ]
+  },
+  "low_issues": {
+    "issues": [
+      {
+        "title": "Payable deposit entrypoint",
+        "description": "deposit() and receive() both accept ETH.",
+        "detector_name": "payable-surface",
+        "instances": [
+          {
+            "contract_path": "src/SimpleVault.sol",
+            "line_no": 27,
+            "src": "0:0:0",
+            "src_char": "0:0",
+            "hint": "deposit()"
+          },
+          {
+            "contract_path": "src/SimpleVault.sol",
+            "line_no": 64,
+            "src": "0:0:0",
+            "src_char": "0:0",
+            "hint": "receive()"
+          }
+        ]
+      }
+    ]
+  },
+  "detectors_used": [
+    "centralization-risk",
+    "privileged-transfer",
+    "payable-surface"
+  ]
+}

@@ -1,0 +1,6 @@
+[scan]
+repo_root = "."
+output_dir = ".safeharbor/analysis"
+forge_bin = "forge"
+aderyn_bin = "bin/mock-aderyn"
+cache = true

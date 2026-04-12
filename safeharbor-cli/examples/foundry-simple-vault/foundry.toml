@@ -1,0 +1,4 @@
+[profile.default]
+solc_version = "0.8.26"
+src = "src"
+out = "out"

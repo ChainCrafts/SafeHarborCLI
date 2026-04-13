@@ -4,8 +4,9 @@ use analyzer::{
 };
 use anyhow::{Context, Result, bail};
 use clap::{Args, Parser, Subcommand};
-use compiler::compile_static_input;
+use compiler::compile_reviewed_input;
 use manifest::validate_file;
+use review_engine::{ApproveDefaultsPrompter, ReviewRequest, TerminalReviewPrompter, run_review};
 use standards_recognizer::{persisted_standards_recognition, recognize_standards};
 use std::{
     env,
@@ -32,6 +33,9 @@ enum Commands {
     /// Emit a Safe Harbor manifest from static input
     Compile(CompileArgs),
 
+    /// Review scan candidates and emit reviewed compiler input
+    Review(ReviewArgs),
+
     /// Validate a manifest against the schema
     Validate(ValidateArgs),
 }
@@ -53,9 +57,36 @@ struct ScanArgs {
 
 #[derive(Args, Debug)]
 struct CompileArgs {
-    /// Path to Safe Harbor config file for static input emission
+    /// Path to Safe Harbor config file for reviewed input emission
     #[arg(long, default_value = "safeharbor.toml")]
     config: PathBuf,
+}
+
+#[derive(Args, Debug)]
+struct ReviewArgs {
+    /// Optional SafeHarbor config path.
+    #[arg(long, default_value = "safeharbor.toml")]
+    config: PathBuf,
+
+    /// Override analysis artifact directory. Relative paths are resolved from the config workspace root.
+    #[arg(long)]
+    analysis_dir: Option<PathBuf>,
+
+    /// Override review state path. Relative paths are resolved from the config workspace root.
+    #[arg(long)]
+    state_file: Option<PathBuf>,
+
+    /// Override reviewed input output path. Relative paths are resolved from the config workspace root.
+    #[arg(long)]
+    reviewed_input: Option<PathBuf>,
+
+    /// Approve all default review decisions without interactive prompts.
+    #[arg(long)]
+    approve_defaults: bool,
+
+    /// When used with --approve-defaults, reject semantic templates below the configured threshold.
+    #[arg(long)]
+    reject_low_confidence_semantic_templates: bool,
 }
 
 #[derive(Args, Debug)]
@@ -83,20 +114,25 @@ fn main() -> Result<()> {
         Commands::Compile(args) => {
             let cfg = config::require_existing_config(&args.config)?;
             let settings = cfg.compile_settings()?;
-            let manifest = compile_static_input(
+            let manifest = compile_reviewed_input(
                 &settings.input_file,
+                &settings.reviewed_input_file,
                 &settings.schema_file,
                 &settings.manifest_output,
+                &settings.summary_output,
             )?;
 
             println!("Emitted manifest successfully");
             println!("  config      : {}", cfg.config_path.display());
-            println!("  input       : {}", settings.input_file.display());
+            println!("  draft input : {}", settings.input_file.display());
+            println!("  reviewed    : {}", settings.reviewed_input_file.display());
             println!("  schema      : {}", settings.schema_file.display());
             println!("  manifest out: {}", settings.manifest_output.display());
+            println!("  summary out : {}", settings.summary_output.display());
             println!("  protocol    : {}", manifest.protocol.slug);
             Ok(())
         }
+        Commands::Review(args) => review_command(args),
         Commands::Validate(args) => {
             let (manifest_path, schema_path) = resolve_validate_paths(&args)?;
             validate_file(&manifest_path, &schema_path)?;
@@ -106,6 +142,60 @@ fn main() -> Result<()> {
             Ok(())
         }
     }
+}
+
+fn review_command(args: ReviewArgs) -> Result<()> {
+    let cfg = config::require_existing_config(&args.config)?;
+    let mut settings = cfg.review_settings()?;
+
+    if let Some(analysis_dir) = args.analysis_dir {
+        settings.analysis_dir = config::resolve_relative_to(&cfg.workspace_root, &analysis_dir);
+    }
+    if let Some(state_file) = args.state_file {
+        settings.state_file = config::resolve_relative_to(&cfg.workspace_root, &state_file);
+    }
+    if let Some(reviewed_input) = args.reviewed_input {
+        settings.reviewed_input_file =
+            config::resolve_relative_to(&cfg.workspace_root, &reviewed_input);
+    }
+
+    let request = ReviewRequest {
+        analysis_graph_path: settings.analysis_dir.join("analysis.graph.json"),
+        structural_candidates_path: settings.analysis_dir.join("structural-candidates.json"),
+        standards_recognition_path: settings.analysis_dir.join("standards-recognition.json"),
+        draft_input_path: settings.input_file.clone(),
+        state_path: settings.state_file.clone(),
+        reviewed_input_path: settings.reviewed_input_file.clone(),
+        low_confidence_threshold: settings.low_confidence_threshold,
+    };
+
+    let reviewed = if args.approve_defaults {
+        let mut prompter = if args.reject_low_confidence_semantic_templates {
+            ApproveDefaultsPrompter::new()
+                .reject_low_confidence_semantic_templates(settings.low_confidence_threshold)
+        } else {
+            ApproveDefaultsPrompter::new()
+        };
+        run_review(request, &mut prompter)?
+    } else {
+        let mut prompter = TerminalReviewPrompter::new();
+        run_review(request, &mut prompter)?
+    };
+
+    println!("Review completed");
+    println!("  config       : {}", cfg.config_path.display());
+    println!("  state        : {}", settings.state_file.display());
+    println!(
+        "  reviewed input: {}",
+        settings.reviewed_input_file.display()
+    );
+    println!(
+        "  contracts    : {}",
+        reviewed.reviewed_scope.contracts.len()
+    );
+    println!("  roles        : {}", reviewed.reviewed_roles.len());
+    println!("  invariants   : {}", reviewed.all_invariants().count());
+    Ok(())
 }
 
 fn scan_command(args: ScanArgs) -> Result<()> {

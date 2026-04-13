@@ -1,0 +1,11 @@
+[package]
+name = "standards-recognizer"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+analyzer = { path = "../analyzer" }
+serde.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true

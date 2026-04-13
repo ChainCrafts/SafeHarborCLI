@@ -1414,6 +1414,7 @@ dependencies = [
  "config",
  "manifest",
  "serde_json",
+ "standards-recognizer",
  "structural-extractor",
 ]
 
@@ -1450,6 +1451,15 @@ name = "stable_deref_trait"
 version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6ce2be8dc25455e1f91df71bfa12ad37d7af1092ae736f3a6cd0e37bc7810596"
+
+[[package]]
+name = "standards-recognizer"
+version = "0.1.0"
+dependencies = [
+ "analyzer",
+ "serde",
+ "serde_json",
+]
 
 [[package]]
 name = "strsim"

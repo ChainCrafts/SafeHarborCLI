@@ -5,7 +5,8 @@ members = [
   "crates/manifest",
   "crates/compiler",
   "crates/analyzer",
-  "crates/structural-extractor"
+  "crates/structural-extractor",
+  "crates/standards-recognizer"
 ]
 resolver = "2"
 

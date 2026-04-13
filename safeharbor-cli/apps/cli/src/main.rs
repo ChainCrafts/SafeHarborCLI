@@ -6,6 +6,7 @@ use anyhow::{Context, Result, bail};
 use clap::{Args, Parser, Subcommand};
 use compiler::compile_static_input;
 use manifest::validate_file;
+use standards_recognizer::{persisted_standards_recognition, recognize_standards};
 use std::{
     env,
     path::{Path, PathBuf},
@@ -130,6 +131,17 @@ fn scan_command(args: ScanArgs) -> Result<()> {
         &analysis.paths.structural_candidates_path,
         &persisted_candidates,
     )?;
+
+    let recognition = recognize_standards(&analysis.graph);
+    let recognition_summary = recognition.recognition_summary.clone();
+    let recognition_metadata = analysis
+        .metadata_base
+        .with_schema_version("standards_recognition/v1");
+    let persisted_recognition = persisted_standards_recognition(recognition, recognition_metadata);
+    write_json_pretty(
+        &analysis.paths.standards_recognition_path,
+        &persisted_recognition,
+    )?;
     cleanup_temporary_outputs(&analysis.paths, resolved.request.cache)?;
 
     println!("Structural scan completed");
@@ -140,6 +152,10 @@ fn scan_command(args: ScanArgs) -> Result<()> {
     println!(
         "  structural candidates : {}",
         analysis.paths.structural_candidates_path.display()
+    );
+    println!(
+        "  standards recognition : {}",
+        analysis.paths.standards_recognition_path.display()
     );
     println!("Found {} contracts", summary.contract_count);
     println!(
@@ -156,6 +172,14 @@ fn scan_command(args: ScanArgs) -> Result<()> {
     );
     println!("Found {} role candidates", summary.role_candidate_count);
     println!("Found {} upgrade surfaces", summary.upgrade_surface_count);
+    println!(
+        "Recognized {} standards or patterns",
+        recognition_summary.recognized_standard_count
+    );
+    println!(
+        "Suggested {} semantic templates",
+        recognition_summary.semantic_template_suggestion_count
+    );
 
     Ok(())
 }

@@ -1,13 +1,10 @@
 use anyhow::{Context, Result};
 use manifest::{SafeHarborManifest, validate_manifest_schema, write_manifest};
-use serde::Deserialize;
+use review_engine::{
+    DraftCompileInput, ReviewedInput, load_draft_compile_input, sha256_file,
+    validate_reviewed_input_for_compile,
+};
 use std::{fs, path::Path};
-
-#[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct StaticCompileInput {
-    pub manifest: SafeHarborManifest,
-}
 
 pub fn compile_static_input(
     input_path: &Path,
@@ -29,12 +26,117 @@ pub fn compile_static_input(
     Ok(input.manifest)
 }
 
-fn load_static_input(path: &Path) -> Result<StaticCompileInput> {
-    let raw = fs::read_to_string(path)
-        .with_context(|| format!("failed to read compile input file: {}", path.display()))?;
+pub fn compile_reviewed_input(
+    draft_input_path: &Path,
+    reviewed_input_path: &Path,
+    schema_path: &Path,
+    manifest_output_path: &Path,
+    summary_output_path: &Path,
+) -> Result<SafeHarborManifest> {
+    let draft = load_draft_compile_input(draft_input_path)?;
+    let reviewed = load_reviewed_input(reviewed_input_path)?;
+    let draft_digest = sha256_file(draft_input_path)?;
 
+    validate_reviewed_input_for_compile(&reviewed, &draft, &draft_digest)?;
+
+    let manifest = assemble_manifest_from_reviewed(&draft, &reviewed);
+    validate_manifest_schema(&manifest, schema_path).with_context(|| {
+        format!(
+            "compiled manifest from reviewed input does not satisfy schema: input={}, reviewed={}, schema={}",
+            draft_input_path.display(),
+            reviewed_input_path.display(),
+            schema_path.display()
+        )
+    })?;
+
+    write_manifest(manifest_output_path, &manifest)?;
+    write_summary(summary_output_path, &manifest)?;
+
+    Ok(manifest)
+}
+
+fn assemble_manifest_from_reviewed(
+    draft: &DraftCompileInput,
+    reviewed: &ReviewedInput,
+) -> SafeHarborManifest {
+    let mut manifest = draft.manifest.clone();
+    manifest.scope = reviewed.reviewed_scope.to_manifest_scope();
+    manifest.roles = reviewed
+        .reviewed_roles
+        .iter()
+        .map(|role| role.reviewed_role.clone())
+        .collect();
+    manifest.invariants = reviewed
+        .all_invariants()
+        .map(|invariant| invariant.to_manifest_invariant())
+        .collect();
+    manifest.review = reviewed.review.clone();
+    manifest
+}
+
+fn load_static_input(path: &Path) -> Result<DraftCompileInput> {
+    load_draft_compile_input(path)
+}
+
+fn load_reviewed_input(path: &Path) -> Result<ReviewedInput> {
+    let raw = fs::read_to_string(path)
+        .with_context(|| format!("failed to read reviewed input file: {}", path.display()))?;
     serde_json::from_str(&raw)
-        .with_context(|| format!("failed to parse compile input JSON: {}", path.display()))
+        .with_context(|| format!("failed to parse reviewed input JSON: {}", path.display()))
+}
+
+fn write_summary(path: &Path, manifest: &SafeHarborManifest) -> Result<()> {
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).with_context(|| {
+            format!(
+                "failed to create summary output directory: {}",
+                parent.display()
+            )
+        })?;
+    }
+
+    let in_scope_contracts = manifest
+        .scope
+        .contracts
+        .iter()
+        .filter(|contract| contract.in_scope)
+        .count();
+    let in_scope_selectors = manifest
+        .scope
+        .contracts
+        .iter()
+        .flat_map(|contract| contract.selectors.as_deref().unwrap_or(&[]))
+        .filter(|selector| selector.in_scope)
+        .count();
+    let mut summary = String::new();
+    summary.push_str("# SafeHarbor Manifest Summary\n\n");
+    summary.push_str(&format!("Protocol: {}\n", manifest.protocol.name));
+    summary.push_str(&format!("Slug: {}\n", manifest.protocol.slug));
+    summary.push_str(&format!("Network: {}\n", manifest.deployment.network));
+    summary.push_str(&format!("Contracts in scope: {in_scope_contracts}\n"));
+    summary.push_str(&format!("Selectors in scope: {in_scope_selectors}\n"));
+    summary.push_str(&format!("Roles: {}\n", manifest.roles.len()));
+    summary.push_str(&format!("Invariants: {}\n\n", manifest.invariants.len()));
+    summary.push_str("## Invariants\n\n");
+    for invariant in &manifest.invariants {
+        summary.push_str(&format!(
+            "- {} [{}] {}: {}\n",
+            invariant.id,
+            render_json_string(&invariant.severity),
+            render_json_string(&invariant.kind),
+            invariant.description
+        ));
+    }
+
+    fs::write(path, summary)
+        .with_context(|| format!("failed to write summary file: {}", path.display()))
+}
+
+fn render_json_string<T: serde::Serialize>(value: &T) -> String {
+    serde_json::to_value(value)
+        .ok()
+        .and_then(|value| value.as_str().map(ToString::to_string))
+        .unwrap_or_else(|| "unknown".to_string())
 }
 
 #[cfg(test)]
@@ -95,10 +197,7 @@ mod tests {
         std::fs::write(&input_path, r#"{ "note": "not a compile input" }"#).unwrap();
 
         let err = compile_static_input(&input_path, &schema_path(), &output_path).unwrap_err();
-        assert!(
-            err.to_string()
-                .contains("failed to parse compile input JSON")
-        );
+        assert!(err.to_string().contains("failed to parse JSON file"));
 
         std::fs::remove_dir_all(dir).unwrap();
     }

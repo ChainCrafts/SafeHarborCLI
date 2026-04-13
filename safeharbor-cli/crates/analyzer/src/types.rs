@@ -258,5 +258,6 @@ pub struct ScanPaths {
     pub cache_dir: PathBuf,
     pub analysis_graph_path: PathBuf,
     pub structural_candidates_path: PathBuf,
+    pub standards_recognition_path: PathBuf,
     pub aderyn_report_path: PathBuf,
 }

@@ -30,6 +30,7 @@ pub fn prepare_scan_paths(output_dir: &Path, cache_enabled: bool) -> Result<Scan
         cache_dir: cache_dir.clone(),
         analysis_graph_path: output_dir.join("analysis.graph.json"),
         structural_candidates_path: output_dir.join("structural-candidates.json"),
+        standards_recognition_path: output_dir.join("standards-recognition.json"),
         aderyn_report_path: if cache_enabled {
             cache_dir.join("aderyn-report.json")
         } else {

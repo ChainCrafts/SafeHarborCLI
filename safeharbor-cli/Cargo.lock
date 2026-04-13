@@ -276,6 +276,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "manifest",
+ "review-engine",
  "serde",
  "serde_json",
 ]
@@ -1211,6 +1212,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "review-engine"
+version = "0.1.0"
+dependencies = [
+ "analyzer",
+ "anyhow",
+ "manifest",
+ "serde",
+ "serde_json",
+ "standards-recognizer",
+ "structural-extractor",
+]
+
+[[package]]
 name = "ring"
 version = "0.17.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1413,6 +1427,7 @@ dependencies = [
  "compiler",
  "config",
  "manifest",
+ "review-engine",
  "serde_json",
  "standards-recognizer",
  "structural-extractor",

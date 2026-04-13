@@ -65,7 +65,9 @@ pub fn load_artifacts(project: &FoundryProject) -> Result<Vec<ArtifactContract>>
 
         let raw = fs::read_to_string(&path)
             .with_context(|| format!("failed to read artifact {}", path.display()))?;
-        let envelope: ArtifactEnvelope = match serde_json::from_str(&raw) {
+        let value: Value = serde_json::from_str(&raw)
+            .with_context(|| format!("failed to parse artifact JSON: {}", path.display()))?;
+        let envelope: ArtifactEnvelope = match serde_json::from_value(value) {
             Ok(envelope) => envelope,
             Err(_) => continue,
         };
@@ -167,7 +169,11 @@ fn render_abi_type(param: &AbiParam) -> String {
 mod tests {
     use super::*;
     use crate::project::FoundryProject;
-    use std::path::PathBuf;
+    use std::{
+        fs,
+        path::{Path, PathBuf},
+        time::{SystemTime, UNIX_EPOCH},
+    };
 
     fn fixture_project() -> FoundryProject {
         let repo_root =
@@ -180,6 +186,29 @@ mod tests {
             script_dir: "script".to_string(),
             libs: vec!["lib".to_string()],
             artifact_dir: repo_root.join("out"),
+            artifact_dir_relative: "out".to_string(),
+        }
+    }
+
+    fn unique_temp_dir() -> PathBuf {
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let dir = std::env::temp_dir().join(format!("safeharbor-analyzer-artifacts-{unique}"));
+        fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    fn temp_project(root: &Path) -> FoundryProject {
+        FoundryProject {
+            repo_root: root.to_path_buf(),
+            foundry_config_path: root.join("foundry.toml"),
+            src_dir: "src".to_string(),
+            test_dir: "test".to_string(),
+            script_dir: "script".to_string(),
+            libs: vec!["lib".to_string()],
+            artifact_dir: root.join("out"),
             artifact_dir_relative: "out".to_string(),
         }
     }
@@ -234,5 +263,21 @@ mod tests {
                 .map(String::as_str),
             Some("3659cfe6")
         );
+    }
+
+    #[test]
+    fn malformed_artifact_json_reports_the_artifact_path() {
+        let root = unique_temp_dir();
+        fs::create_dir_all(root.join("out/Broken.sol")).unwrap();
+        let artifact_path = root.join("out/Broken.sol/Broken.json");
+        fs::write(&artifact_path, "{ not json").unwrap();
+
+        let err = load_artifacts(&temp_project(&root)).unwrap_err();
+        let msg = format!("{err:#}");
+
+        assert!(msg.contains("failed to parse artifact JSON"));
+        assert!(msg.contains(&artifact_path.display().to_string()));
+
+        fs::remove_dir_all(root).unwrap();
     }
 }

@@ -831,8 +831,13 @@ fn sort_and_dedup_calls(calls: &mut Vec<CallTarget>) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{aderyn::parse_report_str, artifacts::load_artifacts, project::FoundryProject};
-    use std::{fs, path::PathBuf};
+    use crate::{
+        aderyn::parse_report_str,
+        artifacts::{ArtifactContract, load_artifacts},
+        project::FoundryProject,
+    };
+    use serde_json::json;
+    use std::{collections::BTreeMap, fs, path::PathBuf};
 
     fn fixture_project() -> FoundryProject {
         let repo_root =
@@ -866,6 +871,55 @@ mod tests {
     fn treats_named_pause_guards_as_non_role_modifiers() {
         assert!(!is_named_role_modifier("whenNotPaused"));
         assert!(is_named_role_modifier("onlyPauser"));
+    }
+
+    #[test]
+    fn normalizes_fallback_as_callable_surface_without_selector() {
+        let artifact = ArtifactContract {
+            artifact_ref: "out/FallbackVault.sol/FallbackVault.json".to_string(),
+            source_path: "src/FallbackVault.sol".to_string(),
+            contract_name: "FallbackVault".to_string(),
+            abi: Vec::new(),
+            method_identifiers: BTreeMap::new(),
+            contract_ast: json!({
+                "nodeType": "ContractDefinition",
+                "contractKind": "contract",
+                "abstract": false,
+                "baseContracts": [],
+                "nodes": [
+                    {
+                        "nodeType": "FunctionDefinition",
+                        "kind": "fallback",
+                        "visibility": "external",
+                        "stateMutability": "payable",
+                        "implemented": true,
+                        "name": "",
+                        "modifiers": [],
+                        "parameters": {
+                            "parameters": []
+                        },
+                        "body": {
+                            "nodeType": "Block",
+                            "statements": []
+                        }
+                    }
+                ]
+            }),
+        };
+
+        let graph = build_analysis_graph(&fixture_project(), &[artifact], Vec::new()).unwrap();
+        let fallback = graph
+            .functions
+            .iter()
+            .find(|function| function.entrypoint_kind == EntrypointKind::Fallback)
+            .unwrap();
+
+        assert_eq!(fallback.id, "src/FallbackVault.sol:FallbackVault#fallback");
+        assert_eq!(fallback.name, "fallback");
+        assert_eq!(fallback.signature, None);
+        assert_eq!(fallback.selector, None);
+        assert_eq!(fallback.visibility, Visibility::External);
+        assert_eq!(fallback.state_mutability, StateMutability::Payable);
     }
 
     #[test]

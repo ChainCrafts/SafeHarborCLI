@@ -717,6 +717,19 @@ mod tests {
                         evidence: "feeRecipient.call(data)".to_string(),
                     }],
                 },
+                FunctionFacts {
+                    id: "src/SimpleVault.sol:SimpleVault#fallback".to_string(),
+                    contract_id: "src/SimpleVault.sol:SimpleVault".to_string(),
+                    name: "fallback".to_string(),
+                    signature: None,
+                    selector: None,
+                    entrypoint_kind: EntrypointKind::Fallback,
+                    visibility: Visibility::External,
+                    state_mutability: StateMutability::Payable,
+                    modifiers: Vec::new(),
+                    auth_signals: Vec::new(),
+                    calls: Vec::new(),
+                },
             ],
             modifiers: vec![ModifierFacts {
                 id: "src/SimpleVault.sol:SimpleVault#modifier:onlyOwner".to_string(),
@@ -738,7 +751,7 @@ mod tests {
 
         assert_eq!(summary.contract_count, 1);
         assert_eq!(summary.privileged_selector_count, 1);
-        assert_eq!(summary.payable_entrypoint_count, 1);
+        assert_eq!(summary.payable_entrypoint_count, 2);
         assert!(
             extracted
                 .role_candidates
@@ -757,5 +770,25 @@ mod tests {
                 .iter()
                 .any(|candidate| candidate.kind == StructuralInvariantKind::ExternalCallSurface)
         );
+    }
+
+    #[test]
+    fn extracts_fallback_as_callable_surface_without_selector() {
+        let graph = sample_graph();
+        let extracted = extract_candidates(&graph);
+        let fallback = extracted
+            .selector_candidates
+            .iter()
+            .find(|candidate| candidate.entrypoint_kind == EntrypointKind::Fallback)
+            .unwrap();
+
+        assert_eq!(
+            fallback.function_id,
+            "src/SimpleVault.sol:SimpleVault#fallback"
+        );
+        assert_eq!(fallback.signature, None);
+        assert_eq!(fallback.selector, None);
+        assert_eq!(fallback.exposure_class, ExposureClass::Fallback);
+        assert!(fallback.payable);
     }
 }

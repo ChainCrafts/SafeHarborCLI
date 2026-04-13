@@ -74,7 +74,8 @@ impl FoundryProject {
 
         if !output.status.success() {
             bail!(
-                "forge build failed for {}:\nstdout:\n{}\nstderr:\n{}",
+                "forge build via {} failed for {}:\nstdout:\n{}\nstderr:\n{}",
+                forge_bin.display(),
                 self.repo_root.display(),
                 String::from_utf8_lossy(&output.stdout),
                 String::from_utf8_lossy(&output.stderr)
@@ -192,6 +193,49 @@ pub fn make_repo_relative(repo_root: &Path, path: &Path) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::{
+        fs,
+        path::{Path, PathBuf},
+        time::{SystemTime, UNIX_EPOCH},
+    };
+
+    fn unique_temp_dir() -> PathBuf {
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let dir = std::env::temp_dir().join(format!("safeharbor-analyzer-project-{unique}"));
+        fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    #[cfg(unix)]
+    fn write_executable(path: &Path, contents: &str) {
+        use std::os::unix::fs::PermissionsExt;
+
+        fs::write(path, contents).unwrap();
+        let mut perms = fs::metadata(path).unwrap().permissions();
+        perms.set_mode(0o755);
+        fs::set_permissions(path, perms).unwrap();
+    }
+
+    #[cfg(not(unix))]
+    fn write_executable(path: &Path, contents: &str) {
+        fs::write(path, contents).unwrap();
+    }
+
+    fn temp_project(root: &Path) -> FoundryProject {
+        FoundryProject {
+            repo_root: root.to_path_buf(),
+            foundry_config_path: root.join("foundry.toml"),
+            src_dir: "src".to_string(),
+            test_dir: "test".to_string(),
+            script_dir: "script".to_string(),
+            libs: vec!["lib".to_string()],
+            artifact_dir: root.join("out"),
+            artifact_dir_relative: "out".to_string(),
+        }
+    }
 
     #[test]
     fn normalizes_repo_relative_paths_without_lowercasing() {
@@ -204,5 +248,40 @@ mod tests {
             normalize_repo_relative_path(Path::new("lib/openzeppelin")),
             "lib/openzeppelin"
         );
+    }
+
+    #[test]
+    fn missing_forge_reports_the_attempted_binary() {
+        let root = unique_temp_dir();
+        fs::write(root.join("foundry.toml"), "").unwrap();
+        let missing = PathBuf::from("__safeharbor_missing_forge__");
+
+        let err = FoundryProject::discover(&root, &missing).unwrap_err();
+        let msg = format!("{err:#}");
+
+        assert!(msg.contains("failed to start forge config --json via"));
+        assert!(msg.contains("__safeharbor_missing_forge__"));
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn failing_forge_build_reports_the_attempted_binary() {
+        let root = unique_temp_dir();
+        let forge_bin = root.join("fake-forge");
+        write_executable(
+            &forge_bin,
+            "#!/usr/bin/env sh\necho build stdout\necho build stderr >&2\nexit 19\n",
+        );
+
+        let err = temp_project(&root).build(&forge_bin).unwrap_err();
+        let msg = format!("{err:#}");
+
+        assert!(msg.contains("forge build via"));
+        assert!(msg.contains(&forge_bin.display().to_string()));
+        assert!(msg.contains("build stdout"));
+        assert!(msg.contains("build stderr"));
+
+        fs::remove_dir_all(root).unwrap();
     }
 }

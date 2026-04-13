@@ -72,7 +72,8 @@ pub fn run_aderyn(
 
     if !output.status.success() {
         bail!(
-            "aderyn scan failed for {}:\nstdout:\n{}\nstderr:\n{}",
+            "aderyn scan via {} failed for {}:\nstdout:\n{}\nstderr:\n{}",
+            aderyn_bin.display(),
             project.repo_root.display(),
             String::from_utf8_lossy(&output.stdout),
             String::from_utf8_lossy(&output.stderr)
@@ -154,6 +155,50 @@ fn parse_detector_findings(report: AderynJsonReport) -> Vec<DetectorFinding> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::project::FoundryProject;
+    use std::{
+        fs,
+        path::{Path, PathBuf},
+        time::{SystemTime, UNIX_EPOCH},
+    };
+
+    fn unique_temp_dir() -> PathBuf {
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let dir = std::env::temp_dir().join(format!("safeharbor-analyzer-aderyn-{unique}"));
+        fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    #[cfg(unix)]
+    fn write_executable(path: &Path, contents: &str) {
+        use std::os::unix::fs::PermissionsExt;
+
+        fs::write(path, contents).unwrap();
+        let mut perms = fs::metadata(path).unwrap().permissions();
+        perms.set_mode(0o755);
+        fs::set_permissions(path, perms).unwrap();
+    }
+
+    #[cfg(not(unix))]
+    fn write_executable(path: &Path, contents: &str) {
+        fs::write(path, contents).unwrap();
+    }
+
+    fn temp_project(root: &Path) -> FoundryProject {
+        FoundryProject {
+            repo_root: root.to_path_buf(),
+            foundry_config_path: root.join("foundry.toml"),
+            src_dir: "src".to_string(),
+            test_dir: "test".to_string(),
+            script_dir: "script".to_string(),
+            libs: vec!["lib".to_string()],
+            artifact_dir: root.join("out"),
+            artifact_dir_relative: "out".to_string(),
+        }
+    }
 
     #[test]
     fn parses_findings_from_high_and_low_issue_buckets() {
@@ -200,5 +245,40 @@ mod tests {
             "src/SimpleVault.sol"
         );
         assert_eq!(findings[1].severity, DetectorSeverity::Low);
+    }
+
+    #[test]
+    fn missing_aderyn_reports_the_attempted_binary() {
+        let root = unique_temp_dir();
+        let missing = PathBuf::from("__safeharbor_missing_aderyn__");
+
+        let err =
+            run_aderyn(&temp_project(&root), &missing, &root.join("report.json")).unwrap_err();
+        let msg = format!("{err:#}");
+
+        assert!(msg.contains("failed to start __safeharbor_missing_aderyn__"));
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn failing_aderyn_scan_reports_the_attempted_binary() {
+        let root = unique_temp_dir();
+        let aderyn_bin = root.join("fake-aderyn");
+        write_executable(
+            &aderyn_bin,
+            "#!/usr/bin/env sh\nif [ \"$1\" = \"--version\" ]; then echo fake-aderyn 0.1.0; exit 0; fi\necho scan stdout\necho scan stderr >&2\nexit 23\n",
+        );
+
+        let err =
+            run_aderyn(&temp_project(&root), &aderyn_bin, &root.join("report.json")).unwrap_err();
+        let msg = format!("{err:#}");
+
+        assert!(msg.contains("aderyn scan via"));
+        assert!(msg.contains(&aderyn_bin.display().to_string()));
+        assert!(msg.contains("scan stdout"));
+        assert!(msg.contains("scan stderr"));
+
+        fs::remove_dir_all(root).unwrap();
     }
 }

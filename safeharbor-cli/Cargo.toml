@@ -6,7 +6,8 @@ members = [
   "crates/compiler",
   "crates/analyzer",
   "crates/structural-extractor",
-  "crates/standards-recognizer"
+  "crates/standards-recognizer",
+  "crates/review-engine"
 ]
 resolver = "2"
 

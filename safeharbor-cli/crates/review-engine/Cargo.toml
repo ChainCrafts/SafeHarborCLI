@@ -1,0 +1,13 @@
+[package]
+name = "review-engine"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+analyzer = { path = "../analyzer" }
+manifest = { path = "../manifest" }
+serde.workspace = true
+serde_json.workspace = true
+standards-recognizer = { path = "../standards-recognizer" }
+structural-extractor = { path = "../structural-extractor" }

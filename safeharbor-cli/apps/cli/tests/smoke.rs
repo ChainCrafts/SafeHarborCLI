@@ -57,11 +57,23 @@ fn copy_dir(from: &Path, to: &Path) {
     }
 }
 
-fn write_compile_workspace(root: &Path) {
-    copy_file(
-        &phase_one_fixture_dir().join("safeharbor.input.json"),
-        &root.join("examples/simple-vault/safeharbor.input.json"),
-    );
+fn write_review_compile_workspace(root: &Path) {
+    let mut draft: Value = serde_json::from_str(
+        &fs::read_to_string(phase_one_fixture_dir().join("safeharbor.input.json")).unwrap(),
+    )
+    .unwrap();
+    draft["analysis_contract_mappings"] = serde_json::json!([
+        {
+            "manifest_contract_id": "vault_core",
+            "source_analysis_contract_id": "src/SimpleVault.sol:SimpleVault"
+        }
+    ]);
+    fs::create_dir_all(root.join("examples/simple-vault")).unwrap();
+    fs::write(
+        root.join("examples/simple-vault/safeharbor.input.json"),
+        serde_json::to_string_pretty(&draft).unwrap(),
+    )
+    .unwrap();
     copy_file(
         &schema_path(),
         &root.join("schemas/safeharbor.manifest.schema.json"),
@@ -75,9 +87,23 @@ file = "examples/simple-vault/safeharbor.input.json"
 
 [output]
 manifest = "examples/simple-vault/out/safeharbor.manifest.json"
+summary = "examples/simple-vault/out/safeharbor.summary.md"
 
 [schema]
 file = "schemas/safeharbor.manifest.schema.json"
+
+[review]
+analysis_dir = ".safeharbor/analysis"
+state_file = ".safeharbor/review/review-state.json"
+reviewed_input = ".safeharbor/review/reviewed-input.json"
+low_confidence_threshold = 75
+
+[scan]
+repo_root = "."
+output_dir = ".safeharbor/analysis"
+forge_bin = "forge"
+aderyn_bin = "bin/mock-aderyn"
+cache = true
 "#,
     )
     .unwrap();
@@ -102,13 +128,39 @@ fn scrub_generated_at(path: &Path) -> Value {
 }
 
 #[test]
-fn cli_can_emit_and_validate_the_golden_manifest_from_static_input() {
+fn cli_can_review_compile_and_validate_the_foundry_fixture() {
     let root = unique_temp_dir();
-    write_compile_workspace(&root);
+    let fixture = foundry_fixture_dir();
+    copy_dir(&fixture, &root);
+    chmod_executable(&root.join("bin/mock-aderyn"));
+    write_review_compile_workspace(&root);
 
     let config_path = root.join("safeharbor.toml");
     let manifest_path = root.join("examples/simple-vault/out/safeharbor.manifest.json");
-    let expected_path = phase_one_fixture_dir().join("expected.safeharbor.manifest.json");
+    let summary_path = root.join("examples/simple-vault/out/safeharbor.summary.md");
+
+    let scan = Command::new(env!("CARGO_BIN_EXE_shcli"))
+        .current_dir(&root)
+        .arg("scan")
+        .arg("--config")
+        .arg(&config_path)
+        .output()
+        .unwrap();
+
+    assert!(scan.status.success(), "{scan:#?}");
+
+    let review = Command::new(env!("CARGO_BIN_EXE_shcli"))
+        .current_dir(&root)
+        .arg("review")
+        .arg("--config")
+        .arg(&config_path)
+        .arg("--approve-defaults")
+        .output()
+        .unwrap();
+
+    assert!(review.status.success(), "{review:#?}");
+    assert!(root.join(".safeharbor/review/review-state.json").exists());
+    assert!(root.join(".safeharbor/review/reviewed-input.json").exists());
 
     let compile = Command::new(env!("CARGO_BIN_EXE_shcli"))
         .arg("compile")
@@ -119,10 +171,14 @@ fn cli_can_emit_and_validate_the_golden_manifest_from_static_input() {
 
     assert!(compile.status.success(), "{compile:#?}");
     assert!(String::from_utf8_lossy(&compile.stdout).contains("Emitted manifest successfully"));
+    assert!(manifest_path.exists());
+    assert!(summary_path.exists());
 
-    let emitted = fs::read_to_string(&manifest_path).unwrap();
-    let expected = fs::read_to_string(&expected_path).unwrap();
-    assert_eq!(emitted, expected);
+    let emitted: Value =
+        serde_json::from_str(&fs::read_to_string(&manifest_path).unwrap()).unwrap();
+    assert_eq!(emitted["scope"]["contracts"][0]["id"], "vault_core");
+    assert_eq!(emitted["roles"][0]["id"], "owner");
+    assert!(emitted["invariants"].as_array().unwrap().len() >= 4);
 
     let validate = Command::new(env!("CARGO_BIN_EXE_shcli"))
         .current_dir(std::env::temp_dir())

@@ -297,4 +297,87 @@ mod tests {
 
         std::fs::remove_dir_all(root).unwrap();
     }
+
+    #[test]
+    fn projection_refuses_incomplete_review_state() {
+        let root = unique_temp_dir();
+        let request = review_request(&root);
+        let context = load_review_context(request).unwrap();
+        let mut state = ReviewState::new(context.source_digests.clone());
+        state.unresolved_count = 1;
+
+        let err = project_reviewed_input(&context, &state).unwrap_err();
+        assert!(
+            err.to_string()
+                .contains("reviewed input cannot be projected while review is incomplete")
+        );
+
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn compile_validation_rejects_stale_draft_digest() {
+        let root = unique_temp_dir();
+        let request = review_request(&root);
+        let draft_input_path = request.draft_input_path.clone();
+        let mut prompter = ApproveDefaultsPrompter::new();
+        let reviewed = run_review(request, &mut prompter).unwrap();
+        let draft = load_draft_compile_input(&draft_input_path).unwrap();
+
+        let err =
+            validate_reviewed_input_for_compile(&reviewed, &draft, &"0".repeat(64)).unwrap_err();
+        assert!(
+            err.to_string()
+                .contains("reviewed input was produced from a different draft metadata digest")
+        );
+
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn compile_validation_rejects_bad_mappings_without_scan_artifacts() {
+        let root = unique_temp_dir();
+        let request = review_request(&root);
+        let draft_input_path = request.draft_input_path.clone();
+        let mut prompter = ApproveDefaultsPrompter::new();
+        let reviewed = run_review(request, &mut prompter).unwrap();
+        let mut draft = load_draft_compile_input(&draft_input_path).unwrap();
+        draft
+            .analysis_contract_mappings
+            .push(draft.analysis_contract_mappings[0].clone());
+
+        let err = validate_reviewed_input_for_compile(
+            &reviewed,
+            &draft,
+            &reviewed.source_digests.draft_metadata,
+        )
+        .unwrap_err();
+        assert!(err.to_string().contains("duplicate manifest contract id"));
+
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn compile_validation_rejects_evidence_outside_draft_policy() {
+        let root = unique_temp_dir();
+        let request = review_request(&root);
+        let draft_input_path = request.draft_input_path.clone();
+        let mut prompter = ApproveDefaultsPrompter::new();
+        let reviewed = run_review(request, &mut prompter).unwrap();
+        let mut draft = load_draft_compile_input(&draft_input_path).unwrap();
+        draft.manifest.evidence.accepted_types = vec![EvidenceType::Trace];
+
+        let err = validate_reviewed_input_for_compile(
+            &reviewed,
+            &draft,
+            &reviewed.source_digests.draft_metadata,
+        )
+        .unwrap_err();
+        assert!(
+            err.to_string()
+                .contains("uses evidence type not accepted by draft policy")
+        );
+
+        std::fs::remove_dir_all(root).unwrap();
+    }
 }

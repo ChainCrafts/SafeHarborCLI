@@ -120,6 +120,22 @@ pub fn validate_reviewed_input_for_compile(
         .iter()
         .map(|contract| contract.id.as_str())
         .collect::<BTreeSet<_>>();
+    let mut mapping_ids = BTreeSet::new();
+    for mapping in &draft.analysis_contract_mappings {
+        if !draft_scope_ids.contains(mapping.manifest_contract_id.as_str()) {
+            bail!(
+                "analysis_contract_mappings references unknown draft scope contract id: {}",
+                mapping.manifest_contract_id
+            );
+        }
+        if !mapping_ids.insert(mapping.manifest_contract_id.as_str()) {
+            bail!(
+                "analysis_contract_mappings contains duplicate manifest contract id: {}",
+                mapping.manifest_contract_id
+            );
+        }
+    }
+
     let mut reviewed_scope_ids = BTreeSet::new();
     for contract in &reviewed.reviewed_scope.contracts {
         if !draft_scope_ids.contains(contract.manifest_contract_id.as_str()) {
@@ -136,13 +152,8 @@ pub fn validate_reviewed_input_for_compile(
         }
     }
 
-    let mappings = draft
-        .analysis_contract_mappings
-        .iter()
-        .map(|mapping| mapping.manifest_contract_id.as_str())
-        .collect::<BTreeSet<_>>();
     for contract_id in &reviewed_scope_ids {
-        if !mappings.contains(contract_id) {
+        if !mapping_ids.contains(contract_id) {
             bail!(
                 "reviewed contract id has no draft analysis_contract_mappings entry: {contract_id}"
             );

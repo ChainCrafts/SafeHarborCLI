@@ -2,8 +2,8 @@ use crate::{
     loader::ReviewContext,
     taxonomy::{semantic_evidence, semantic_kind, semantic_severity, structural_default},
     types::{
-        REVIEWED_INPUT_SCHEMA_VERSION, ReviewAction, ReviewDecision, ReviewState,
-        ReviewedAccessClassification, ReviewedInput, ReviewedInvariant, ReviewedRole,
+        REVIEWED_INPUT_SCHEMA_VERSION, ReviewAction, ReviewDecision, ReviewSessionStatus,
+        ReviewState, ReviewedAccessClassification, ReviewedInput, ReviewedInvariant, ReviewedRole,
         ReviewedScope, ReviewedScopeContract, ReviewedScopeSelector, ReviewedSpecialEntrypoint,
     },
     view::{
@@ -26,6 +26,14 @@ pub fn project_reviewed_input(
     context: &ReviewContext,
     state: &ReviewState,
 ) -> Result<ReviewedInput> {
+    if state.session_status != ReviewSessionStatus::Complete || state.unresolved_count != 0 {
+        bail!(
+            "reviewed input cannot be projected while review is incomplete: status={:?}, unresolved={}",
+            state.session_status,
+            state.unresolved_count
+        );
+    }
+
     let decisions = decisions_by_id(&state.decisions)?;
     let source_to_manifest = source_to_manifest_ids(context);
     let draft_contracts = draft_contracts(context);

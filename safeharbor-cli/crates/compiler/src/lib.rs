@@ -201,4 +201,30 @@ mod tests {
 
         std::fs::remove_dir_all(dir).unwrap();
     }
+
+    #[test]
+    fn reviewed_compile_reports_missing_reviewed_input() {
+        let dir = unique_temp_dir();
+        let manifest_output_path = dir.join("safeharbor.manifest.json");
+        let summary_output_path = dir.join("safeharbor.summary.md");
+        let reviewed_input_path = dir.join("missing-reviewed-input.json");
+        let input_path = fixture_dir().join("safeharbor.input.json");
+        let schema_path = schema_path();
+
+        let err = compile_reviewed_input(
+            &input_path,
+            &reviewed_input_path,
+            &schema_path,
+            &manifest_output_path,
+            &summary_output_path,
+        )
+        .unwrap_err();
+
+        assert!(
+            err.to_string()
+                .contains("failed to read reviewed input file")
+        );
+
+        std::fs::remove_dir_all(dir).unwrap();
+    }
 }

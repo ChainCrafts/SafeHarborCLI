@@ -6,7 +6,7 @@ use crate::{
     },
     types::{
         RecognitionCategory, RecognitionEvidence, RecognitionEvidenceSource, RecognitionKind,
-        RecognizedStandard,
+        RecognitionType, RecognizedStandard,
     },
 };
 use analyzer::types::{AnalysisGraph, AuthSignalKind, FunctionFacts};
@@ -83,6 +83,7 @@ pub fn recognize(graph: &AnalysisGraph) -> Vec<RecognizedStandard> {
             contract_id: contract.id.clone(),
             contract_name: contract.name.clone(),
             kind: RecognitionKind::AccessControl,
+            recognition_type: RecognitionType::Pattern,
             category: RecognitionCategory::AccessPattern,
             standard_reference: Some("OpenZeppelin Contracts AccessControl".to_string()),
             confidence,

@@ -6,7 +6,7 @@ use crate::{
     },
     types::{
         RecognitionCategory, RecognitionEvidence, RecognitionEvidenceSource, RecognitionKind,
-        RecognizedStandard,
+        RecognitionType, RecognizedStandard,
     },
 };
 use analyzer::types::{AnalysisGraph, EntrypointKind, FunctionFacts, StateMutability};
@@ -100,6 +100,7 @@ fn recognize_pausable(graph: &AnalysisGraph) -> Vec<RecognizedStandard> {
             contract_id: contract.id.clone(),
             contract_name: contract.name.clone(),
             kind: RecognitionKind::Pausable,
+            recognition_type: RecognitionType::Pattern,
             category: RecognitionCategory::OperationalPattern,
             standard_reference: Some("OpenZeppelin Contracts Pausable".to_string()),
             confidence,
@@ -183,6 +184,7 @@ fn recognize_upgradeable(graph: &AnalysisGraph) -> Vec<RecognizedStandard> {
             contract_id: contract.id.clone(),
             contract_name: contract.name.clone(),
             kind: RecognitionKind::Upgradeable,
+            recognition_type: RecognitionType::Pattern,
             category: RecognitionCategory::UpgradePattern,
             standard_reference: Some("UUPS or upgradeable implementation pattern".to_string()),
             confidence,

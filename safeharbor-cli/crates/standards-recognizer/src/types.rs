@@ -52,6 +52,13 @@ impl RecognitionKind {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 #[serde(rename_all = "snake_case")]
+pub enum RecognitionType {
+    Standard,
+    Pattern,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
+#[serde(rename_all = "snake_case")]
 pub enum RecognitionCategory {
     TokenStandard,
     VaultStandard,
@@ -66,6 +73,7 @@ pub struct RecognizedStandard {
     pub contract_id: String,
     pub contract_name: String,
     pub kind: RecognitionKind,
+    pub recognition_type: RecognitionType,
     pub category: RecognitionCategory,
     pub standard_reference: Option<String>,
     pub confidence: f64,
@@ -131,6 +139,12 @@ pub enum TemplateEvidenceType {
     ReproductionScript,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
+#[serde(rename_all = "snake_case")]
+pub enum TemplateReviewStatus {
+    RequiresHumanReview,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct SemanticTemplateSuggestion {
     pub id: String,
@@ -140,6 +154,7 @@ pub struct SemanticTemplateSuggestion {
     pub standard_reference: Option<String>,
     pub kind: SemanticTemplateKind,
     pub severity: SuggestionSeverity,
+    pub review_status: TemplateReviewStatus,
     pub title: String,
     pub description: String,
     pub rationale: String,

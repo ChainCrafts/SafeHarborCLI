@@ -6,7 +6,7 @@ use crate::{
     },
     types::{
         RecognitionCategory, RecognitionEvidence, RecognitionEvidenceSource, RecognitionKind,
-        RecognizedStandard,
+        RecognitionType, RecognizedStandard,
     },
 };
 use analyzer::types::{AnalysisGraph, ContractFacts, FunctionFacts};
@@ -43,6 +43,7 @@ pub fn recognize(graph: &AnalysisGraph) -> Vec<RecognizedStandard> {
             contract_id: contract.id.clone(),
             contract_name: contract.name.clone(),
             kind: RecognitionKind::Erc20,
+            recognition_type: RecognitionType::Standard,
             category: RecognitionCategory::TokenStandard,
             standard_reference: Some("ERC-20".to_string()),
             confidence,

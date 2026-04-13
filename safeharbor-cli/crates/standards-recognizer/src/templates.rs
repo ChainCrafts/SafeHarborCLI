@@ -11,7 +11,7 @@ use crate::{
     },
     types::{
         RecognitionKind, RecognizedStandard, SemanticTemplateKind, SemanticTemplateSuggestion,
-        SuggestionClass, SuggestionSeverity, TemplateEvidenceType,
+        SuggestionClass, SuggestionSeverity, TemplateEvidenceType, TemplateReviewStatus,
     },
 };
 use analyzer::types::{AnalysisGraph, AuthSignalKind, FunctionFacts};
@@ -364,6 +364,7 @@ fn base_suggestion(
         standard_reference: recognition.standard_reference.clone(),
         kind,
         severity,
+        review_status: TemplateReviewStatus::RequiresHumanReview,
         title: title.to_string(),
         description: description.to_string(),
         rationale: rationale.to_string(),

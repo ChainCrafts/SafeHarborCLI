@@ -6,7 +6,7 @@ use crate::{
     },
     types::{
         RecognitionCategory, RecognitionEvidence, RecognitionEvidenceSource, RecognitionKind,
-        RecognizedStandard,
+        RecognitionType, RecognizedStandard,
     },
 };
 use analyzer::types::AnalysisGraph;
@@ -109,6 +109,7 @@ pub fn recognize(
             contract_id: contract.id.clone(),
             contract_name: contract.name.clone(),
             kind: RecognitionKind::Erc4626,
+            recognition_type: RecognitionType::Standard,
             category: RecognitionCategory::VaultStandard,
             standard_reference: Some("ERC-4626".to_string()),
             confidence,

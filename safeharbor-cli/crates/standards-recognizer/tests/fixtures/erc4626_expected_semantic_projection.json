@@ -1,0 +1,16 @@
+{
+  "recognized": {
+    "erc20": "standard",
+    "erc4626": "standard"
+  },
+  "semantic_template_ids": [
+    "erc20:allowance-spend-boundary",
+    "erc20:transfer-accounting-review",
+    "erc4626:asset-share-accounting-review",
+    "erc4626:preview-execution-consistency",
+    "erc4626:solvency-boundary"
+  ],
+  "review_statuses": [
+    "requires_human_review"
+  ]
+}

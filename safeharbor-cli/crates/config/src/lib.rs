@@ -12,6 +12,7 @@ pub struct AppConfig {
     pub output: Option<OutputConfig>,
     pub schema: Option<SchemaConfig>,
     pub scan: Option<ScanConfig>,
+    pub review: Option<ReviewConfig>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -24,6 +25,7 @@ pub struct InputConfig {
 #[serde(deny_unknown_fields)]
 pub struct OutputConfig {
     pub manifest: PathBuf,
+    pub summary: Option<PathBuf>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -42,11 +44,31 @@ pub struct ScanConfig {
     pub cache: Option<bool>,
 }
 
+#[derive(Debug, Clone, Deserialize, Default, PartialEq, Eq)]
+#[serde(default, deny_unknown_fields)]
+pub struct ReviewConfig {
+    pub analysis_dir: Option<PathBuf>,
+    pub state_file: Option<PathBuf>,
+    pub reviewed_input: Option<PathBuf>,
+    pub low_confidence_threshold: Option<u32>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CompileSettings {
     pub input_file: PathBuf,
+    pub reviewed_input_file: PathBuf,
     pub manifest_output: PathBuf,
+    pub summary_output: PathBuf,
     pub schema_file: PathBuf,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ReviewSettings {
+    pub input_file: PathBuf,
+    pub analysis_dir: PathBuf,
+    pub state_file: PathBuf,
+    pub reviewed_input_file: PathBuf,
+    pub low_confidence_threshold: u32,
 }
 
 #[derive(Debug, Clone)]
@@ -76,8 +98,40 @@ impl LoadedConfig {
 
         Ok(CompileSettings {
             input_file: self.workspace_root.join(&input.file),
+            reviewed_input_file: self.review_settings()?.reviewed_input_file,
             manifest_output: self.workspace_root.join(&output.manifest),
+            summary_output: self.workspace_root.join(
+                output
+                    .summary
+                    .clone()
+                    .unwrap_or_else(|| default_summary_path(&output.manifest)),
+            ),
             schema_file: self.workspace_root.join(&schema.file),
+        })
+    }
+
+    pub fn review_settings(&self) -> Result<ReviewSettings> {
+        let input = self
+            .app
+            .input
+            .as_ref()
+            .context("missing [input] section required for review")?;
+        let review = self.app.review.clone().unwrap_or_default();
+
+        Ok(ReviewSettings {
+            input_file: self.workspace_root.join(&input.file),
+            analysis_dir: self
+                .workspace_root
+                .join(review.analysis_dir.unwrap_or_else(default_analysis_dir)),
+            state_file: self
+                .workspace_root
+                .join(review.state_file.unwrap_or_else(default_review_state_path)),
+            reviewed_input_file: self.workspace_root.join(
+                review
+                    .reviewed_input
+                    .unwrap_or_else(default_reviewed_input_path),
+            ),
+            low_confidence_threshold: review.low_confidence_threshold.unwrap_or(75),
         })
     }
 
@@ -137,6 +191,22 @@ pub fn resolve_optional_command(base: &Path, candidate: Option<&str>, fallback: 
     } else {
         PathBuf::from(raw)
     }
+}
+
+fn default_analysis_dir() -> PathBuf {
+    PathBuf::from(".safeharbor/analysis")
+}
+
+fn default_review_state_path() -> PathBuf {
+    PathBuf::from(".safeharbor/review/review-state.json")
+}
+
+fn default_reviewed_input_path() -> PathBuf {
+    PathBuf::from(".safeharbor/review/reviewed-input.json")
+}
+
+fn default_summary_path(manifest: &Path) -> PathBuf {
+    manifest.with_file_name("safeharbor.summary.md")
 }
 
 pub fn require_existing_config(path: &Path) -> Result<LoadedConfig> {
@@ -203,6 +273,16 @@ cache = true
         );
         assert!(
             compile
+                .summary_output
+                .ends_with("out/safeharbor.summary.md")
+        );
+        assert!(
+            compile
+                .reviewed_input_file
+                .ends_with(".safeharbor/review/reviewed-input.json")
+        );
+        assert!(
+            compile
                 .schema_file
                 .ends_with("schemas/safeharbor.manifest.schema.json")
         );
@@ -245,7 +325,7 @@ aderyn_bin = "bin/mock-aderyn"
     }
 
     #[test]
-    fn rejects_unknown_config_keys() {
+    fn supports_review_and_summary_paths() {
         let temp_root = unique_temp_dir();
         let config_path = temp_root.join("safeharbor.toml");
 
@@ -261,13 +341,38 @@ summary = "out/safeharbor.summary.md"
 
 [schema]
 file = "schemas/safeharbor.manifest.schema.json"
+
+[review]
+analysis_dir = "analysis"
+state_file = "review/state.json"
+reviewed_input = "review/reviewed-input.json"
+low_confidence_threshold = 70
 "#,
         )
         .unwrap();
 
-        let err = load_config(&config_path).unwrap_err();
-        let msg = format!("{err:#}");
-        assert!(msg.contains("unknown field `summary`"));
+        let loaded = load_config(&config_path).unwrap();
+        let compile = loaded.compile_settings().unwrap();
+        let review = loaded.review_settings().unwrap();
+
+        assert!(
+            compile
+                .summary_output
+                .ends_with("out/safeharbor.summary.md")
+        );
+        assert!(
+            compile
+                .reviewed_input_file
+                .ends_with("review/reviewed-input.json")
+        );
+        assert!(review.analysis_dir.ends_with("analysis"));
+        assert!(review.state_file.ends_with("review/state.json"));
+        assert!(
+            review
+                .reviewed_input_file
+                .ends_with("review/reviewed-input.json")
+        );
+        assert_eq!(review.low_confidence_threshold, 70);
 
         std::fs::remove_dir_all(temp_root).unwrap();
     }

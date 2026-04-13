@@ -1,0 +1,283 @@
+{
+  "metadata": {
+    "schema_version": "standards_recognition/v1",
+    "generated_at": "1970-01-01T00:00:00Z",
+    "tool_version": "0.1.0",
+    "repo_root": ".",
+    "input_digest": "813ecb3932918bc937c7a69dd4bd3993b4054e059a9e253d4ae8441c959f458d",
+    "aderyn_version": "mock-aderyn 0.1.0",
+    "forge_version": "forge Version: 1.5.1-stable\nCommit SHA: b0a9dd9ceda36f63e2326ce530c10e6916f4b8a2\nBuild Timestamp: 2025-12-22T11:39:01.425730780Z (1766403541)\nBuild Profile: maxperf"
+  },
+  "recognized_standards": [
+    {
+      "id": "recognition-src-simplevault-sol-simplevault-ownable",
+      "contract_id": "src/SimpleVault.sol:SimpleVault",
+      "contract_name": "SimpleVault",
+      "kind": "ownable",
+      "category": "access_pattern",
+      "standard_reference": "OpenZeppelin Contracts Ownable",
+      "confidence": 0.99,
+      "evidence": [
+        {
+          "source": "auth_signal",
+          "detail": "callable functions carry owner auth signals",
+          "function_ids": [
+            "src/SimpleVault.sol:SimpleVault#pause()",
+            "src/SimpleVault.sol:SimpleVault#setFeeRecipient(address)",
+            "src/SimpleVault.sol:SimpleVault#unpause()",
+            "src/SimpleVault.sol:SimpleVault#upgradeTo(address)",
+            "src/SimpleVault.sol:SimpleVault#withdrawFees(uint256)"
+          ],
+          "selectors": [
+            "0x3659cfe6",
+            "0x3f4ba83a",
+            "0x5e318e07",
+            "0x8456cb59",
+            "0xe74b981b"
+          ],
+          "confidence": 0.99
+        }
+      ],
+      "affected_function_ids": [
+        "src/SimpleVault.sol:SimpleVault#pause()",
+        "src/SimpleVault.sol:SimpleVault#setFeeRecipient(address)",
+        "src/SimpleVault.sol:SimpleVault#unpause()",
+        "src/SimpleVault.sol:SimpleVault#upgradeTo(address)",
+        "src/SimpleVault.sol:SimpleVault#withdrawFees(uint256)"
+      ],
+      "affected_selectors": [
+        "0x3659cfe6",
+        "0x3f4ba83a",
+        "0x5e318e07",
+        "0x8456cb59",
+        "0xe74b981b"
+      ],
+      "provenance": [
+        "analysis_graph.auth_signals",
+        "analysis_graph.functions"
+      ]
+    },
+    {
+      "id": "recognition-src-simplevault-sol-simplevault-pausable",
+      "contract_id": "src/SimpleVault.sol:SimpleVault",
+      "contract_name": "SimpleVault",
+      "kind": "pausable",
+      "category": "operational_pattern",
+      "standard_reference": "OpenZeppelin Contracts Pausable",
+      "confidence": 0.95,
+      "evidence": [
+        {
+          "source": "function_signature",
+          "detail": "contract exposes pause or unpause control signatures",
+          "function_ids": [
+            "src/SimpleVault.sol:SimpleVault#pause()",
+            "src/SimpleVault.sol:SimpleVault#unpause()"
+          ],
+          "selectors": [
+            "0x3f4ba83a",
+            "0x8456cb59"
+          ],
+          "confidence": 0.9
+        },
+        {
+          "source": "modifier",
+          "detail": "callable functions use whenPaused or whenNotPaused modifiers",
+          "function_ids": [
+            "src/SimpleVault.sol:SimpleVault#deposit()",
+            "src/SimpleVault.sol:SimpleVault#withdraw(uint256)"
+          ],
+          "selectors": [
+            "0x2e1a7d4d",
+            "0xd0e30db0"
+          ],
+          "confidence": 0.95
+        }
+      ],
+      "affected_function_ids": [
+        "src/SimpleVault.sol:SimpleVault#deposit()",
+        "src/SimpleVault.sol:SimpleVault#pause()",
+        "src/SimpleVault.sol:SimpleVault#receive",
+        "src/SimpleVault.sol:SimpleVault#unpause()",
+        "src/SimpleVault.sol:SimpleVault#withdraw(uint256)"
+      ],
+      "affected_selectors": [
+        "0x2e1a7d4d",
+        "0x3f4ba83a",
+        "0x8456cb59",
+        "0xd0e30db0"
+      ],
+      "provenance": [
+        "analysis_graph.functions",
+        "analysis_graph.modifiers"
+      ]
+    },
+    {
+      "id": "recognition-src-simplevault-sol-simplevault-upgradeable",
+      "contract_id": "src/SimpleVault.sol:SimpleVault",
+      "contract_name": "SimpleVault",
+      "kind": "upgradeable",
+      "category": "upgrade_pattern",
+      "standard_reference": "UUPS or upgradeable implementation pattern",
+      "confidence": 0.95,
+      "evidence": [
+        {
+          "source": "function_signature",
+          "detail": "contract exposes upgrade or UUPS compatibility signatures",
+          "function_ids": [
+            "src/SimpleVault.sol:SimpleVault#upgradeTo(address)"
+          ],
+          "selectors": [
+            "0x3659cfe6"
+          ],
+          "confidence": 0.88
+        },
+        {
+          "source": "auth_signal",
+          "detail": "upgrade entrypoints carry owner or role auth signals",
+          "function_ids": [
+            "src/SimpleVault.sol:SimpleVault#upgradeTo(address)"
+          ],
+          "selectors": [
+            "0x3659cfe6"
+          ],
+          "confidence": 0.95
+        }
+      ],
+      "affected_function_ids": [
+        "src/SimpleVault.sol:SimpleVault#upgradeTo(address)"
+      ],
+      "affected_selectors": [
+        "0x3659cfe6"
+      ],
+      "provenance": [
+        "analysis_graph.auth_signals",
+        "analysis_graph.functions"
+      ]
+    }
+  ],
+  "semantic_template_suggestions": [
+    {
+      "id": "suggestion-src-simplevault-sol-simplevault-openzeppelin-pausable-user-entrypoint-guard",
+      "class": "semantic_template",
+      "template_id": "openzeppelin-pausable:user-entrypoint-guard",
+      "source_kind": "pausable",
+      "standard_reference": "OpenZeppelin Contracts Pausable",
+      "kind": "pause_control",
+      "severity": "high",
+      "title": "Pausable user entrypoint guard",
+      "description": "Suggested review target: recognized user entrypoints should follow the reviewed paused-state behavior.",
+      "rationale": "This is a template-guided pause expectation derived from explicit pause controls or pause guards. It is not an inferred statement about arbitrary protocol economics.",
+      "contract_ids": [
+        "src/SimpleVault.sol:SimpleVault"
+      ],
+      "function_ids": [
+        "src/SimpleVault.sol:SimpleVault#deposit()",
+        "src/SimpleVault.sol:SimpleVault#receive",
+        "src/SimpleVault.sol:SimpleVault#withdraw(uint256)"
+      ],
+      "selectors": [
+        "0x2e1a7d4d",
+        "0xd0e30db0"
+      ],
+      "special_entrypoints": [
+        "receive"
+      ],
+      "evidence_types": [
+        "trace",
+        "state-diff",
+        "reproduction-script"
+      ],
+      "provenance": [
+        "analysis_graph.functions",
+        "analysis_graph.modifiers",
+        "standards_recognizer.semantic_templates"
+      ],
+      "confidence": 0.95
+    },
+    {
+      "id": "suggestion-src-simplevault-sol-simplevault-ownable-owner-gated-admin-surfaces",
+      "class": "semantic_template",
+      "template_id": "ownable:owner-gated-admin-surfaces",
+      "source_kind": "ownable",
+      "standard_reference": "OpenZeppelin Contracts Ownable",
+      "kind": "access_control",
+      "severity": "critical",
+      "title": "Owner-gated admin surfaces",
+      "description": "Suggested review target: owner-gated administrative entrypoints should remain restricted to the reviewed owner authority.",
+      "rationale": "This suggestion is derived from explicit owner auth signals. It does not decide whether the owner role holder set is acceptable; human review must confirm that intent.",
+      "contract_ids": [
+        "src/SimpleVault.sol:SimpleVault"
+      ],
+      "function_ids": [
+        "src/SimpleVault.sol:SimpleVault#pause()",
+        "src/SimpleVault.sol:SimpleVault#setFeeRecipient(address)",
+        "src/SimpleVault.sol:SimpleVault#unpause()",
+        "src/SimpleVault.sol:SimpleVault#upgradeTo(address)",
+        "src/SimpleVault.sol:SimpleVault#withdrawFees(uint256)"
+      ],
+      "selectors": [
+        "0x3659cfe6",
+        "0x3f4ba83a",
+        "0x5e318e07",
+        "0x8456cb59",
+        "0xe74b981b"
+      ],
+      "special_entrypoints": [],
+      "evidence_types": [
+        "selector-access-breach",
+        "trace",
+        "state-diff"
+      ],
+      "provenance": [
+        "analysis_graph.auth_signals",
+        "analysis_graph.functions",
+        "standards_recognizer.semantic_templates"
+      ],
+      "confidence": 0.99
+    },
+    {
+      "id": "suggestion-src-simplevault-sol-simplevault-upgradeable-upgrade-authority-boundary",
+      "class": "semantic_template",
+      "template_id": "upgradeable:upgrade-authority-boundary",
+      "source_kind": "upgradeable",
+      "standard_reference": "UUPS or upgradeable implementation pattern",
+      "kind": "upgrade_control",
+      "severity": "critical",
+      "title": "Upgradeable authority boundary",
+      "description": "Suggested review target: upgrade entrypoints should remain restricted to the reviewed upgrade authority.",
+      "rationale": "This suggestion is derived from recognized upgrade surfaces and any attached auth signals. It does not prove implementation compatibility, storage-layout safety, or governance safety.",
+      "contract_ids": [
+        "src/SimpleVault.sol:SimpleVault"
+      ],
+      "function_ids": [
+        "src/SimpleVault.sol:SimpleVault#upgradeTo(address)"
+      ],
+      "selectors": [
+        "0x3659cfe6"
+      ],
+      "special_entrypoints": [],
+      "evidence_types": [
+        "selector-access-breach",
+        "trace",
+        "state-diff"
+      ],
+      "provenance": [
+        "analysis_graph.auth_signals",
+        "analysis_graph.functions",
+        "standards_recognizer.semantic_templates"
+      ],
+      "confidence": 0.95
+    }
+  ],
+  "recognition_summary": {
+    "contract_count": 1,
+    "recognized_standard_count": 3,
+    "semantic_template_suggestion_count": 3,
+    "high_confidence_recognition_count": 3,
+    "recognized_by_kind": {
+      "ownable": 1,
+      "pausable": 1,
+      "upgradeable": 1
+    }
+  }
+}

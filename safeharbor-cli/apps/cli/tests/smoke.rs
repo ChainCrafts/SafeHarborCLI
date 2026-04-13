@@ -161,18 +161,25 @@ fn cli_can_scan_the_foundry_fixture_and_match_golden_outputs() {
     assert!(stdout.contains("Found 2 payable entrypoints"));
     assert!(stdout.contains("Found 1 role candidates"));
     assert!(stdout.contains("Found 1 upgrade surfaces"));
+    assert!(stdout.contains("Recognized 3 standards or patterns"));
+    assert!(stdout.contains("Suggested 3 semantic templates"));
 
     let actual_analysis =
         scrub_generated_at(&root.join(".safeharbor/analysis/analysis.graph.json"));
     let actual_candidates =
         scrub_generated_at(&root.join(".safeharbor/analysis/structural-candidates.json"));
+    let actual_recognition =
+        scrub_generated_at(&root.join(".safeharbor/analysis/standards-recognition.json"));
     let expected_analysis =
         scrub_generated_at(&fixture.join("testdata/expected.analysis.graph.json"));
     let expected_candidates =
         scrub_generated_at(&fixture.join("testdata/expected.structural-candidates.json"));
+    let expected_recognition =
+        scrub_generated_at(&fixture.join("testdata/expected.standards-recognition.json"));
 
     assert_eq!(actual_analysis, expected_analysis);
     assert_eq!(actual_candidates, expected_candidates);
+    assert_eq!(actual_recognition, expected_recognition);
 
     fs::remove_dir_all(root).unwrap();
 }
@@ -209,6 +216,10 @@ fn cli_scan_can_run_against_live_aderyn() {
     );
     assert!(
         root.join(".safeharbor/analysis/structural-candidates.json")
+            .exists()
+    );
+    assert!(
+        root.join(".safeharbor/analysis/standards-recognition.json")
             .exists()
     );
 

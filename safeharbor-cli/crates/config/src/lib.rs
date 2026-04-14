@@ -13,6 +13,7 @@ pub struct AppConfig {
     pub schema: Option<SchemaConfig>,
     pub scan: Option<ScanConfig>,
     pub review: Option<ReviewConfig>,
+    pub battlechain: Option<BattlechainConfig>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -51,6 +52,20 @@ pub struct ReviewConfig {
     pub state_file: Option<PathBuf>,
     pub reviewed_input: Option<PathBuf>,
     pub low_confidence_threshold: Option<u32>,
+}
+
+#[derive(Debug, Clone, Deserialize, Default, PartialEq)]
+#[serde(default, deny_unknown_fields)]
+pub struct BattlechainConfig {
+    pub network: Option<String>,
+    pub rpc_url: Option<String>,
+    pub chain_id: Option<u64>,
+    pub agreement_address: Option<String>,
+    pub explorer_base_url: Option<String>,
+    pub recovery_address: Option<String>,
+    pub bounty_pct: Option<f64>,
+    pub commitment_window_days: Option<u32>,
+    pub lifecycle_state: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -146,6 +161,10 @@ impl LoadedConfig {
 
     pub fn scan_config(&self) -> ScanConfig {
         self.app.scan.clone().unwrap_or_default()
+    }
+
+    pub fn battlechain_config(&self) -> BattlechainConfig {
+        self.app.battlechain.clone().unwrap_or_default()
     }
 }
 
@@ -253,6 +272,17 @@ file = "schemas/safeharbor.manifest.schema.json"
 repo_root = "../protocol"
 output_dir = ".safeharbor/analysis"
 cache = true
+
+[battlechain]
+network = "battlechain-testnet"
+rpc_url = "https://rpc.example.test"
+chain_id = 627
+agreement_address = "0x4a13d7c0b6e9f24c1d8a3e5b7f02c6d9a1e4b3f8"
+explorer_base_url = "https://explorer.example.test"
+recovery_address = "0x91f0c3a7d4b8e2c6a1f5d9b3e7c0a4d8f2b6c1e5"
+bounty_pct = 10
+commitment_window_days = 30
+lifecycle_state = "AGREEMENT_CREATED"
 "#,
         )
         .unwrap();
@@ -294,6 +324,20 @@ cache = true
                 aderyn_bin: None,
                 forge_bin: None,
                 cache: Some(true),
+            }
+        );
+        assert_eq!(
+            loaded.battlechain_config(),
+            BattlechainConfig {
+                network: Some("battlechain-testnet".to_string()),
+                rpc_url: Some("https://rpc.example.test".to_string()),
+                chain_id: Some(627),
+                agreement_address: Some("0x4a13d7c0b6e9f24c1d8a3e5b7f02c6d9a1e4b3f8".to_string()),
+                explorer_base_url: Some("https://explorer.example.test".to_string()),
+                recovery_address: Some("0x91f0c3a7d4b8e2c6a1f5d9b3e7c0a4d8f2b6c1e5".to_string()),
+                bounty_pct: Some(10.0),
+                commitment_window_days: Some(30),
+                lifecycle_state: Some("AGREEMENT_CREATED".to_string()),
             }
         );
 

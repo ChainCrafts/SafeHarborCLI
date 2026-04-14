@@ -1321,6 +1321,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dc897dd8d9e8bd1ed8cdad82b5966c3e0ecae09fb1907d58efaa013543185d0a"
 
 [[package]]
+name = "registry"
+version = "0.1.0"
+dependencies = [
+ "battlechain-adapter",
+ "config",
+ "manifest",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+]
+
+[[package]]
 name = "reqwest"
 version = "0.13.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1586,6 +1599,7 @@ dependencies = [
  "compiler",
  "config",
  "manifest",
+ "registry",
  "review-engine",
  "serde_json",
  "standards-recognizer",

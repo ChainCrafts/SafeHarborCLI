@@ -10,6 +10,9 @@ use battlechain_adapter::{
 use clap::{Args, Parser, Subcommand};
 use compiler::compile_reviewed_input;
 use manifest::validate_file;
+use registry::{
+    HttpRegistryRpcClient, ReadbackStatus, RegistryOverrides, prepare_registry_publish,
+};
 use review_engine::{ApproveDefaultsPrompter, ReviewRequest, TerminalReviewPrompter, run_review};
 use standards_recognizer::{persisted_standards_recognition, recognize_standards};
 use std::{
@@ -40,6 +43,12 @@ enum Commands {
         command: BattlechainCommands,
     },
 
+    /// Prepare and verify optional manifest registry publication calldata
+    Registry {
+        #[command(subcommand)]
+        command: RegistryCommands,
+    },
+
     /// Emit a Safe Harbor manifest from static input
     Compile(CompileArgs),
 
@@ -60,6 +69,12 @@ enum Commands {
 enum BattlechainCommands {
     /// Prepare BattleChain adapter metadata from compiled manifest output
     Prepare(BattlechainPrepareArgs),
+}
+
+#[derive(Subcommand, Debug)]
+enum RegistryCommands {
+    /// Prepare calldata to associate an agreement with a compiled manifest URI
+    Publish(RegistryPublishArgs),
 }
 
 #[derive(Args, Debug)]
@@ -146,6 +161,37 @@ struct DoctorArgs {
 }
 
 #[derive(Args, Debug)]
+struct RegistryPublishArgs {
+    /// Optional SafeHarbor config path.
+    #[arg(long, default_value = "safeharbor.toml")]
+    config: PathBuf,
+
+    /// Manifest URI to associate with the compiled manifest hash.
+    #[arg(long)]
+    manifest_uri: String,
+
+    /// Override BattleChain network name.
+    #[arg(long)]
+    network: Option<String>,
+
+    /// Override BattleChain RPC URL for chain checks and readback verification.
+    #[arg(long)]
+    rpc_url: Option<String>,
+
+    /// Override BattleChain chain ID.
+    #[arg(long)]
+    chain_id: Option<u64>,
+
+    /// Agreement address override. Only used when the compiled manifest has no BattleChain adapter agreement.
+    #[arg(long)]
+    agreement_address: Option<String>,
+
+    /// Registry contract address override.
+    #[arg(long)]
+    registry_address: Option<String>,
+}
+
+#[derive(Args, Debug)]
 struct ReviewArgs {
     /// Optional SafeHarbor config path.
     #[arg(long, default_value = "safeharbor.toml")]
@@ -197,6 +243,9 @@ fn main() -> Result<()> {
         Commands::Battlechain { command } => match command {
             BattlechainCommands::Prepare(args) => battlechain_prepare_command(args),
         },
+        Commands::Registry { command } => match command {
+            RegistryCommands::Publish(args) => registry_publish_command(args),
+        },
         Commands::Compile(args) => {
             let cfg = config::require_existing_config(&args.config)?;
             let settings = cfg.compile_settings()?;
@@ -230,6 +279,67 @@ fn main() -> Result<()> {
         Commands::Status(args) => status_command(args),
         Commands::Doctor(args) => doctor_command(args),
     }
+}
+
+fn registry_publish_command(args: RegistryPublishArgs) -> Result<()> {
+    let cfg = config::require_existing_config(&args.config)?;
+    let client = HttpRegistryRpcClient::new()?;
+    let prepared = prepare_registry_publish(
+        &cfg,
+        &args.manifest_uri,
+        &RegistryOverrides {
+            network: args.network,
+            rpc_url: args.rpc_url,
+            chain_id: args.chain_id,
+            agreement_address: args.agreement_address,
+            registry_address: args.registry_address,
+        },
+        &client,
+    )?;
+
+    println!("Registry publish prepared");
+    println!("  config       : {}", cfg.config_path.display());
+    println!("  manifest     : {}", prepared.manifest_display_path);
+    println!("  agreement    : {}", prepared.agreement_address);
+    println!("  registry     : {}", prepared.registry_address);
+    println!("  manifest hash: {}", prepared.manifest_digest);
+    println!("  manifest URI : {}", prepared.manifest_uri);
+    println!(
+        "  network      : {} (chain {})",
+        prepared.network.network, prepared.network.chain_id
+    );
+    println!("  calldata     : {}", prepared.calldata);
+
+    match &prepared.readback {
+        Some(report) => {
+            println!("  readback     : {}", report.status);
+            if let Some(current) = &report.current {
+                println!("  current hash : sha256:{}", current.manifest_hash_hex);
+                println!("  current URI  : {}", current.manifest_uri);
+                println!("  publisher    : {}", current.publisher);
+                println!("  published at : {}", current.published_at);
+            }
+            if report.status != ReadbackStatus::Match {
+                println!("Next steps:");
+                println!(
+                    "  - Submit the calldata above to {} from the registry owner.",
+                    prepared.registry_address
+                );
+                println!("  - Re-run this command with the same manifest URI to verify readback.");
+            }
+        }
+        None => {
+            println!("  readback     : unavailable (no RPC URL configured)");
+            println!("Next steps:");
+            println!(
+                "  - Submit the calldata above to {} from the registry owner.",
+                prepared.registry_address
+            );
+            println!("  - Configure [battlechain].rpc_url or pass --rpc-url to verify readback.");
+        }
+    }
+
+    Ok(())
 }
 
 fn battlechain_prepare_command(args: BattlechainPrepareArgs) -> Result<()> {

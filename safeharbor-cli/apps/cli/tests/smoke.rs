@@ -4,9 +4,9 @@ use std::{
     io::{Read, Write},
     net::{TcpListener, TcpStream},
     path::{Path, PathBuf},
-    process::Command,
+    process::{Child, Command, Stdio},
     thread,
-    time::{SystemTime, UNIX_EPOCH},
+    time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
 fn unique_temp_dir() -> PathBuf {
@@ -22,6 +22,15 @@ fn unique_temp_dir() -> PathBuf {
 
 fn workspace_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
+}
+
+fn repository_root() -> PathBuf {
+    workspace_root()
+        .canonicalize()
+        .unwrap()
+        .parent()
+        .unwrap()
+        .to_path_buf()
 }
 
 fn phase_one_fixture_dir() -> PathBuf {
@@ -108,6 +117,26 @@ forge_bin = "forge"
 aderyn_bin = "bin/mock-aderyn"
 cache = true
 "#,
+    )
+    .unwrap();
+}
+
+fn append_registry_publish_config(root: &Path, rpc_url: &str, registry_address: &str) {
+    let mut file = fs::OpenOptions::new()
+        .append(true)
+        .open(root.join("safeharbor.toml"))
+        .unwrap();
+    writeln!(
+        file,
+        r#"
+[battlechain]
+network = "battlechain-testnet"
+chain_id = 627
+rpc_url = "{rpc_url}"
+
+[registry]
+address = "{registry_address}"
+"#
     )
     .unwrap();
 }
@@ -214,6 +243,116 @@ fn start_fake_rpc(chain_id_hex: &'static str, code: &'static str) -> String {
         }
     });
     format!("http://{addr}")
+}
+
+const ANVIL_OWNER: &str = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266";
+
+struct ChildGuard {
+    child: Child,
+}
+
+impl Drop for ChildGuard {
+    fn drop(&mut self) {
+        let _ = self.child.kill();
+        let _ = self.child.wait();
+    }
+}
+
+fn start_anvil() -> (ChildGuard, String) {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = listener.local_addr().unwrap().port();
+    drop(listener);
+
+    let child = Command::new("anvil")
+        .arg("--host")
+        .arg("127.0.0.1")
+        .arg("--port")
+        .arg(port.to_string())
+        .arg("--chain-id")
+        .arg("627")
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+        .unwrap();
+    let rpc_url = format!("http://127.0.0.1:{port}");
+
+    for _ in 0..50 {
+        let output = Command::new("cast")
+            .arg("rpc")
+            .arg("--rpc-url")
+            .arg(&rpc_url)
+            .arg("eth_chainId")
+            .output()
+            .unwrap();
+        if output.status.success() {
+            return (ChildGuard { child }, rpc_url);
+        }
+        thread::sleep(Duration::from_millis(100));
+    }
+
+    panic!("anvil did not become ready at {rpc_url}");
+}
+
+fn deploy_registry(rpc_url: &str) -> String {
+    let contracts_root = repository_root().join("contracts");
+    let output = Command::new("forge")
+        .current_dir(repository_root())
+        .arg("create")
+        .arg("--root")
+        .arg(&contracts_root)
+        .arg("--broadcast")
+        .arg("--rpc-url")
+        .arg(rpc_url)
+        .arg("--unlocked")
+        .arg("--from")
+        .arg(ANVIL_OWNER)
+        .arg("--color")
+        .arg("never")
+        .arg("src/SafeHarborManifestRegistry.sol:SafeHarborManifestRegistry")
+        .output()
+        .unwrap();
+
+    assert!(output.status.success(), "{output:#?}");
+    let rendered = format!(
+        "{}{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    for line in rendered.lines() {
+        let line = line.trim();
+        if let Some(address) = line.strip_prefix("Deployed to:") {
+            return address.trim().to_string();
+        }
+    }
+
+    panic!("failed to parse registry deployment address from forge output:\n{rendered}");
+}
+
+fn extract_calldata(stdout: &[u8]) -> String {
+    extract_output_value(stdout, "calldata     : ")
+}
+
+fn extract_output_value(stdout: &[u8], prefix: &str) -> String {
+    let stdout = String::from_utf8_lossy(stdout);
+    stdout
+        .lines()
+        .find_map(|line| line.trim().strip_prefix(prefix))
+        .unwrap_or_else(|| panic!("failed to find '{prefix}' in output:\n{stdout}"))
+        .to_string()
+}
+
+fn send_raw_calldata(rpc_url: &str, to: &str, calldata: &str) {
+    let tx = format!(r#"{{"from":"{ANVIL_OWNER}","to":"{to}","data":"{calldata}"}}"#);
+    let output = Command::new("cast")
+        .arg("rpc")
+        .arg("--rpc-url")
+        .arg(rpc_url)
+        .arg("eth_sendTransaction")
+        .arg(tx)
+        .output()
+        .unwrap();
+
+    assert!(output.status.success(), "{output:#?}");
 }
 
 fn handle_fake_rpc_connection(stream: &mut TcpStream, chain_id_hex: &str, code: &str) {
@@ -338,6 +477,112 @@ fn cli_can_review_compile_and_validate_the_foundry_fixture() {
     let doctor_stdout = String::from_utf8_lossy(&doctor.stdout);
     assert!(doctor_stdout.contains("[WARN] RPC reachable"));
     assert!(doctor_stdout.contains("summary:"));
+
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn cli_registry_publish_prepares_and_verifies_local_publication() {
+    let root = unique_temp_dir();
+    let fixture = foundry_fixture_dir();
+    copy_dir(&fixture, &root);
+    chmod_executable(&root.join("bin/mock-aderyn"));
+    write_review_compile_workspace(&root);
+
+    let (_anvil, rpc_url) = start_anvil();
+    let registry_address = deploy_registry(&rpc_url);
+    append_registry_publish_config(&root, &rpc_url, &registry_address);
+
+    let config_path = root.join("safeharbor.toml");
+    let manifest_uri = "ipfs://bafy-safeharbor-smoke";
+
+    let scan = Command::new(env!("CARGO_BIN_EXE_shcli"))
+        .current_dir(&root)
+        .arg("scan")
+        .arg("--config")
+        .arg(&config_path)
+        .output()
+        .unwrap();
+    assert!(scan.status.success(), "{scan:#?}");
+
+    let review = Command::new(env!("CARGO_BIN_EXE_shcli"))
+        .current_dir(&root)
+        .arg("review")
+        .arg("--config")
+        .arg(&config_path)
+        .arg("--approve-defaults")
+        .output()
+        .unwrap();
+    assert!(review.status.success(), "{review:#?}");
+
+    let compile = Command::new(env!("CARGO_BIN_EXE_shcli"))
+        .current_dir(&root)
+        .arg("compile")
+        .arg("--config")
+        .arg(&config_path)
+        .output()
+        .unwrap();
+    assert!(compile.status.success(), "{compile:#?}");
+
+    let prepare = Command::new(env!("CARGO_BIN_EXE_shcli"))
+        .current_dir(&root)
+        .arg("battlechain")
+        .arg("prepare")
+        .arg("--config")
+        .arg(&config_path)
+        .output()
+        .unwrap();
+    assert!(prepare.status.success(), "{prepare:#?}");
+
+    let publish = Command::new(env!("CARGO_BIN_EXE_shcli"))
+        .current_dir(&root)
+        .arg("registry")
+        .arg("publish")
+        .arg("--config")
+        .arg(&config_path)
+        .arg("--manifest-uri")
+        .arg(manifest_uri)
+        .output()
+        .unwrap();
+    assert!(publish.status.success(), "{publish:#?}");
+    let publish_stdout = String::from_utf8_lossy(&publish.stdout);
+    assert!(
+        publish_stdout.contains("Registry publish prepared"),
+        "{publish_stdout}"
+    );
+    assert!(
+        publish_stdout.contains("readback     : no publication"),
+        "{publish_stdout}"
+    );
+    let calldata = extract_calldata(&publish.stdout);
+    let manifest_hash = extract_output_value(&publish.stdout, "manifest hash: ");
+
+    send_raw_calldata(&rpc_url, &registry_address, &calldata);
+
+    let verify = Command::new(env!("CARGO_BIN_EXE_shcli"))
+        .current_dir(&root)
+        .arg("registry")
+        .arg("publish")
+        .arg("--config")
+        .arg(&config_path)
+        .arg("--manifest-uri")
+        .arg(manifest_uri)
+        .output()
+        .unwrap();
+    assert!(verify.status.success(), "{verify:#?}");
+    let verify_stdout = String::from_utf8_lossy(&verify.stdout);
+    assert!(
+        verify_stdout.contains("readback     : match"),
+        "{verify_stdout}"
+    );
+    assert!(
+        verify_stdout.contains("manifest URI : ipfs://bafy-safeharbor-smoke"),
+        "{verify_stdout}"
+    );
+    assert!(
+        verify_stdout.contains(&format!("manifest hash: {manifest_hash}")),
+        "{verify_stdout}"
+    );
 
     fs::remove_dir_all(root).unwrap();
 }

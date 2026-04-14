@@ -14,6 +14,7 @@ pub struct AppConfig {
     pub scan: Option<ScanConfig>,
     pub review: Option<ReviewConfig>,
     pub battlechain: Option<BattlechainConfig>,
+    pub registry: Option<RegistryConfig>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -66,6 +67,12 @@ pub struct BattlechainConfig {
     pub bounty_pct: Option<f64>,
     pub commitment_window_days: Option<u32>,
     pub lifecycle_state: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize, Default, PartialEq, Eq)]
+#[serde(default, deny_unknown_fields)]
+pub struct RegistryConfig {
+    pub address: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -165,6 +172,10 @@ impl LoadedConfig {
 
     pub fn battlechain_config(&self) -> BattlechainConfig {
         self.app.battlechain.clone().unwrap_or_default()
+    }
+
+    pub fn registry_config(&self) -> RegistryConfig {
+        self.app.registry.clone().unwrap_or_default()
     }
 }
 
@@ -283,6 +294,9 @@ recovery_address = "0x91f0c3a7d4b8e2c6a1f5d9b3e7c0a4d8f2b6c1e5"
 bounty_pct = 10
 commitment_window_days = 30
 lifecycle_state = "AGREEMENT_CREATED"
+
+[registry]
+address = "0x1111111111111111111111111111111111111111"
 "#,
         )
         .unwrap();
@@ -338,6 +352,12 @@ lifecycle_state = "AGREEMENT_CREATED"
                 bounty_pct: Some(10.0),
                 commitment_window_days: Some(30),
                 lifecycle_state: Some("AGREEMENT_CREATED".to_string()),
+            }
+        );
+        assert_eq!(
+            loaded.registry_config(),
+            RegistryConfig {
+                address: Some("0x1111111111111111111111111111111111111111".to_string()),
             }
         );
 

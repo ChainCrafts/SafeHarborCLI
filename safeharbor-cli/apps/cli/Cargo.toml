@@ -11,6 +11,7 @@ battlechain-adapter = { path = "../../crates/battlechain-adapter" }
 config = { path = "../../crates/config" }
 compiler = { path = "../../crates/compiler" }
 manifest = { path = "../../crates/manifest" }
+registry = { path = "../../crates/registry" }
 review-engine = { path = "../../crates/review-engine" }
 structural-extractor = { path = "../../crates/structural-extractor" }
 standards-recognizer = { path = "../../crates/standards-recognizer" }

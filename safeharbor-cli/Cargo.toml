@@ -6,6 +6,7 @@ members = [
   "crates/manifest",
   "crates/compiler",
   "crates/analyzer",
+  "crates/registry",
   "crates/structural-extractor",
   "crates/standards-recognizer",
   "crates/review-engine"

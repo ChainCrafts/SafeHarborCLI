@@ -1,8 +1,11 @@
 use serde_json::Value;
 use std::{
     fs,
+    io::{Read, Write},
+    net::{TcpListener, TcpStream},
     path::{Path, PathBuf},
     process::Command,
+    thread,
     time::{SystemTime, UNIX_EPOCH},
 };
 
@@ -127,6 +130,112 @@ fn scrub_generated_at(path: &Path) -> Value {
     value
 }
 
+fn write_compiled_battlechain_workspace(root: &Path, include_adapter: bool, rpc_url: Option<&str>) {
+    fs::create_dir_all(root.join("examples/simple-vault/out")).unwrap();
+    fs::create_dir_all(root.join(".safeharbor/review")).unwrap();
+    fs::create_dir_all(root.join("schemas")).unwrap();
+
+    let mut manifest: Value = serde_json::from_str(
+        &fs::read_to_string(phase_one_fixture_dir().join("expected.safeharbor.manifest.json"))
+            .unwrap(),
+    )
+    .unwrap();
+    if !include_adapter {
+        manifest.as_object_mut().unwrap().remove("adapters");
+    }
+    fs::write(
+        root.join("examples/simple-vault/out/safeharbor.manifest.json"),
+        format!("{}\n", serde_json::to_string_pretty(&manifest).unwrap()),
+    )
+    .unwrap();
+    fs::write(
+        root.join("examples/simple-vault/out/safeharbor.summary.md"),
+        "# Summary\n",
+    )
+    .unwrap();
+    fs::write(
+        root.join("examples/simple-vault/safeharbor.input.json"),
+        "{}",
+    )
+    .unwrap();
+    fs::write(root.join(".safeharbor/review/reviewed-input.json"), "{}").unwrap();
+    copy_file(
+        &schema_path(),
+        &root.join("schemas/safeharbor.manifest.schema.json"),
+    );
+
+    let battlechain_section = match rpc_url {
+        Some(rpc_url) => format!(
+            r#"
+[battlechain]
+network = "battlechain-testnet"
+chain_id = 627
+rpc_url = "{rpc_url}"
+"#
+        ),
+        None => r#"
+[battlechain]
+network = "battlechain-testnet"
+chain_id = 627
+"#
+        .to_string(),
+    };
+
+    fs::write(
+        root.join("safeharbor.toml"),
+        format!(
+            r#"
+[input]
+file = "examples/simple-vault/safeharbor.input.json"
+
+[output]
+manifest = "examples/simple-vault/out/safeharbor.manifest.json"
+summary = "examples/simple-vault/out/safeharbor.summary.md"
+
+[schema]
+file = "schemas/safeharbor.manifest.schema.json"
+
+[review]
+reviewed_input = ".safeharbor/review/reviewed-input.json"
+{battlechain_section}
+"#
+        ),
+    )
+    .unwrap();
+}
+
+fn start_fake_rpc(chain_id_hex: &'static str, code: &'static str) -> String {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let addr = listener.local_addr().unwrap();
+    thread::spawn(move || {
+        for stream in listener.incoming().take(8) {
+            let mut stream = stream.unwrap();
+            handle_fake_rpc_connection(&mut stream, chain_id_hex, code);
+        }
+    });
+    format!("http://{addr}")
+}
+
+fn handle_fake_rpc_connection(stream: &mut TcpStream, chain_id_hex: &str, code: &str) {
+    let mut buffer = [0u8; 4096];
+    let bytes_read = stream.read(&mut buffer).unwrap();
+    let request = String::from_utf8_lossy(&buffer[..bytes_read]);
+    let result = if request.contains("eth_chainId") {
+        chain_id_hex
+    } else if request.contains("eth_getCode") {
+        code
+    } else {
+        "0x"
+    };
+    let body = format!(r#"{{"jsonrpc":"2.0","id":1,"result":"{result}"}}"#);
+    let response = format!(
+        "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+        body.len(),
+        body
+    );
+    stream.write_all(response.as_bytes()).unwrap();
+}
+
 #[test]
 fn cli_can_review_compile_and_validate_the_foundry_fixture() {
     let root = unique_temp_dir();
@@ -190,6 +299,88 @@ fn cli_can_review_compile_and_validate_the_foundry_fixture() {
 
     assert!(validate.status.success(), "{validate:#?}");
     assert!(String::from_utf8_lossy(&validate.stdout).contains("Manifest is valid"));
+
+    let prepare = Command::new(env!("CARGO_BIN_EXE_shcli"))
+        .current_dir(&root)
+        .arg("battlechain")
+        .arg("prepare")
+        .arg("--config")
+        .arg(&config_path)
+        .output()
+        .unwrap();
+
+    assert!(prepare.status.success(), "{prepare:#?}");
+    assert!(root.join(".safeharbor/battlechain/prepare.json").exists());
+    assert!(String::from_utf8_lossy(&prepare.stdout).contains("BattleChain prepare completed"));
+
+    let status = Command::new(env!("CARGO_BIN_EXE_shcli"))
+        .current_dir(&root)
+        .arg("status")
+        .arg("--config")
+        .arg(&config_path)
+        .output()
+        .unwrap();
+
+    assert!(status.status.success(), "{status:#?}");
+    let status_stdout = String::from_utf8_lossy(&status.stdout);
+    assert!(status_stdout.contains("BattleChain status"));
+    assert!(status_stdout.contains("lifecycle: AGREEMENT_CREATED (local)"));
+
+    let doctor = Command::new(env!("CARGO_BIN_EXE_shcli"))
+        .current_dir(&root)
+        .arg("doctor")
+        .arg("--config")
+        .arg(&config_path)
+        .output()
+        .unwrap();
+
+    assert!(doctor.status.success(), "{doctor:#?}");
+    let doctor_stdout = String::from_utf8_lossy(&doctor.stdout);
+    assert!(doctor_stdout.contains("[WARN] RPC reachable"));
+    assert!(doctor_stdout.contains("summary:"));
+
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn battlechain_status_reports_missing_agreement_address() {
+    let root = unique_temp_dir();
+    write_compiled_battlechain_workspace(&root, false, None);
+
+    let status = Command::new(env!("CARGO_BIN_EXE_shcli"))
+        .current_dir(&root)
+        .arg("status")
+        .arg("--config")
+        .arg(root.join("safeharbor.toml"))
+        .output()
+        .unwrap();
+
+    assert!(status.status.success(), "{status:#?}");
+    let stdout = String::from_utf8_lossy(&status.stdout);
+    assert!(stdout.contains("agreement: missing"));
+    assert!(stdout.contains("remote chain: unavailable"));
+
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn battlechain_doctor_fails_on_wrong_remote_chain_id() {
+    let root = unique_temp_dir();
+    let rpc_url = start_fake_rpc("0x1", "0x6000");
+    write_compiled_battlechain_workspace(&root, true, Some(&rpc_url));
+
+    let doctor = Command::new(env!("CARGO_BIN_EXE_shcli"))
+        .current_dir(&root)
+        .arg("doctor")
+        .arg("--config")
+        .arg(root.join("safeharbor.toml"))
+        .output()
+        .unwrap();
+
+    assert!(!doctor.status.success(), "{doctor:#?}");
+    let stdout = String::from_utf8_lossy(&doctor.stdout);
+    assert!(stdout.contains("[FAIL] correct chain detected"));
+    assert!(stdout.contains("remote chain ID 1 does not match resolved chain ID 627"));
 
     fs::remove_dir_all(root).unwrap();
 }

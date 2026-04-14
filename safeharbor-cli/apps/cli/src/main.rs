@@ -3,6 +3,10 @@ use analyzer::{
     write_analysis_graph, write_json_pretty,
 };
 use anyhow::{Context, Result, bail};
+use battlechain_adapter::{
+    BattlechainOverrides, HttpBattlechainClient, WorkspaceArtifacts, prepare_battlechain,
+    run_doctor, run_status,
+};
 use clap::{Args, Parser, Subcommand};
 use compiler::compile_reviewed_input;
 use manifest::validate_file;
@@ -30,6 +34,12 @@ enum Commands {
     /// Scan a Foundry repo and emit structural analysis candidates
     Scan(ScanArgs),
 
+    /// Prepare or inspect BattleChain adapter metadata
+    Battlechain {
+        #[command(subcommand)]
+        command: BattlechainCommands,
+    },
+
     /// Emit a Safe Harbor manifest from static input
     Compile(CompileArgs),
 
@@ -38,6 +48,18 @@ enum Commands {
 
     /// Validate a manifest against the schema
     Validate(ValidateArgs),
+
+    /// Show local and remote BattleChain lifecycle status
+    Status(StatusArgs),
+
+    /// Diagnose local and remote BattleChain readiness
+    Doctor(DoctorArgs),
+}
+
+#[derive(Subcommand, Debug)]
+enum BattlechainCommands {
+    /// Prepare BattleChain adapter metadata from compiled manifest output
+    Prepare(BattlechainPrepareArgs),
 }
 
 #[derive(Args, Debug)]
@@ -60,6 +82,67 @@ struct CompileArgs {
     /// Path to Safe Harbor config file for reviewed input emission
     #[arg(long, default_value = "safeharbor.toml")]
     config: PathBuf,
+}
+
+#[derive(Args, Debug, Clone)]
+struct BattlechainCommonArgs {
+    /// Optional SafeHarbor config path.
+    #[arg(long, default_value = "safeharbor.toml")]
+    config: PathBuf,
+
+    /// Override BattleChain network name.
+    #[arg(long)]
+    network: Option<String>,
+
+    /// Override BattleChain RPC URL.
+    #[arg(long)]
+    rpc_url: Option<String>,
+
+    /// Override BattleChain chain ID.
+    #[arg(long)]
+    chain_id: Option<u64>,
+
+    /// Override BattleChain agreement address.
+    #[arg(long)]
+    agreement_address: Option<String>,
+}
+
+#[derive(Args, Debug)]
+struct BattlechainPrepareArgs {
+    #[command(flatten)]
+    common: BattlechainCommonArgs,
+
+    /// Override BattleChain explorer base URL.
+    #[arg(long)]
+    explorer_base_url: Option<String>,
+
+    /// Seed local BattleChain recovery address metadata.
+    #[arg(long)]
+    recovery_address: Option<String>,
+
+    /// Seed local BattleChain bounty percentage metadata.
+    #[arg(long)]
+    bounty_pct: Option<f64>,
+
+    /// Seed local BattleChain commitment window metadata.
+    #[arg(long)]
+    commitment_window_days: Option<u32>,
+
+    /// Seed local unverified lifecycle state metadata.
+    #[arg(long)]
+    lifecycle_state: Option<String>,
+}
+
+#[derive(Args, Debug)]
+struct StatusArgs {
+    #[command(flatten)]
+    common: BattlechainCommonArgs,
+}
+
+#[derive(Args, Debug)]
+struct DoctorArgs {
+    #[command(flatten)]
+    common: BattlechainCommonArgs,
 }
 
 #[derive(Args, Debug)]
@@ -111,6 +194,9 @@ fn main() -> Result<()> {
 
     match cli.command {
         Commands::Scan(args) => scan_command(args),
+        Commands::Battlechain { command } => match command {
+            BattlechainCommands::Prepare(args) => battlechain_prepare_command(args),
+        },
         Commands::Compile(args) => {
             let cfg = config::require_existing_config(&args.config)?;
             let settings = cfg.compile_settings()?;
@@ -141,6 +227,85 @@ fn main() -> Result<()> {
             println!("  schema  : {}", schema_path.display());
             Ok(())
         }
+        Commands::Status(args) => status_command(args),
+        Commands::Doctor(args) => doctor_command(args),
+    }
+}
+
+fn battlechain_prepare_command(args: BattlechainPrepareArgs) -> Result<()> {
+    let cfg = config::require_existing_config(&args.common.config)?;
+    let artifacts = WorkspaceArtifacts::from_loaded_config(&cfg);
+    let overrides = prepare_overrides(args);
+    let artifact = prepare_battlechain(&cfg, &overrides)?;
+
+    let readiness = if artifact.has_failures() {
+        "not ready"
+    } else if artifact.has_warnings() {
+        "ready with warnings"
+    } else {
+        "ready"
+    };
+
+    println!("BattleChain prepare completed");
+    println!("  artifact : {}", artifacts.prepare_path.display());
+    println!("  readiness: {readiness}");
+    println!(
+        "  network  : {} (chain {})",
+        artifact.resolved_network.network, artifact.resolved_network.chain_id
+    );
+    match &artifact.agreement_binding {
+        Some(binding) => println!("  agreement: {}", binding.agreement_address),
+        None => println!("  agreement: missing"),
+    }
+    println!("Next steps:");
+    for step in &artifact.next_steps {
+        println!("  - {step}");
+    }
+
+    Ok(())
+}
+
+fn status_command(args: StatusArgs) -> Result<()> {
+    let cfg = config::require_existing_config(&args.common.config)?;
+    let overrides = common_overrides(args.common);
+    let client = HttpBattlechainClient::new()?;
+    let report = run_status(&cfg, &overrides, &client)?;
+
+    print!("{}", report.render_text());
+    Ok(())
+}
+
+fn doctor_command(args: DoctorArgs) -> Result<()> {
+    let cfg = config::require_existing_config(&args.common.config)?;
+    let overrides = common_overrides(args.common);
+    let client = HttpBattlechainClient::new()?;
+    let report = run_doctor(&cfg, &overrides, &client)?;
+
+    print!("{}", report.render_text());
+    if report.has_failures() {
+        bail!("doctor found failing BattleChain checks");
+    }
+
+    Ok(())
+}
+
+fn prepare_overrides(args: BattlechainPrepareArgs) -> BattlechainOverrides {
+    let mut overrides = common_overrides(args.common);
+    overrides.explorer_base_url = args.explorer_base_url;
+    overrides.recovery_address = args.recovery_address;
+    overrides.bounty_pct = args.bounty_pct;
+    overrides.commitment_window_days = args.commitment_window_days;
+    overrides.lifecycle_state = args.lifecycle_state;
+    overrides
+}
+
+fn common_overrides(args: BattlechainCommonArgs) -> BattlechainOverrides {
+    BattlechainOverrides {
+        network: args.network,
+        rpc_url: args.rpc_url,
+        chain_id: args.chain_id,
+        agreement_address: args.agreement_address,
+        ..BattlechainOverrides::default()
     }
 }
 

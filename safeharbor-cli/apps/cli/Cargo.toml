@@ -7,6 +7,7 @@ edition.workspace = true
 anyhow.workspace = true
 clap.workspace = true
 analyzer = { path = "../../crates/analyzer" }
+battlechain-adapter = { path = "../../crates/battlechain-adapter" }
 config = { path = "../../crates/config" }
 compiler = { path = "../../crates/compiler" }
 manifest = { path = "../../crates/manifest" }

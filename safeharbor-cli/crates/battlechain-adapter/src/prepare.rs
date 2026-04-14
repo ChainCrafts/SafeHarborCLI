@@ -7,15 +7,10 @@ use crate::{
         ResolvedNetworkConfig,
     },
 };
-use manifest::SafeHarborManifest;
+use manifest::{SafeHarborManifest, sha256_file};
 use safeharbor_config::LoadedConfig;
 use serde::{Deserialize, Serialize};
-use std::{
-    fs,
-    io::Write,
-    path::Path,
-    process::{Command, Stdio},
-};
+use std::{fs, path::Path};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -277,72 +272,6 @@ pub(crate) fn is_http_url(value: &str) -> bool {
     (value.starts_with("https://") || value.starts_with("http://"))
         && !value.contains(char::is_whitespace)
         && value.len() > "http://".len()
-}
-
-pub(crate) fn sha256_file(path: &Path) -> Result<String> {
-    let bytes = fs::read(path).map_err(|source| BattlechainError::Read {
-        kind: "file for digest",
-        path: path.to_path_buf(),
-        source,
-    })?;
-
-    if let Some(digest) = run_digest_command("sha256sum", &[], &bytes)? {
-        return Ok(digest);
-    }
-    if let Some(digest) = run_digest_command("shasum", &["-a", "256"], &bytes)? {
-        return Ok(digest);
-    }
-    if let Some(digest) = run_digest_command("openssl", &["dgst", "-sha256"], &bytes)? {
-        return Ok(digest);
-    }
-
-    Err(BattlechainError::Client(
-        "failed to compute sha256 digest: no supported digest command found".to_string(),
-    ))
-}
-
-fn run_digest_command(command: &str, args: &[&str], input: &[u8]) -> Result<Option<String>> {
-    let mut child = match Command::new(command)
-        .args(args)
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::null())
-        .spawn()
-    {
-        Ok(child) => child,
-        Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(None),
-        Err(err) => {
-            return Err(BattlechainError::Client(format!(
-                "failed to run digest command {command}: {err}"
-            )));
-        }
-    };
-
-    child
-        .stdin
-        .as_mut()
-        .expect("digest child stdin is piped")
-        .write_all(input)
-        .map_err(|err| BattlechainError::Client(format!("failed to write to {command}: {err}")))?;
-
-    let output = child
-        .wait_with_output()
-        .map_err(|err| BattlechainError::Client(format!("failed to wait for {command}: {err}")))?;
-    if !output.status.success() {
-        return Ok(None);
-    }
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let digest = stdout
-        .split_whitespace()
-        .find(|token| token.len() == 64 && token.chars().all(|ch| ch.is_ascii_hexdigit()))
-        .unwrap_or("");
-
-    if digest.is_empty() {
-        Ok(None)
-    } else {
-        Ok(Some(digest.to_ascii_lowercase()))
-    }
 }
 
 fn next_steps() -> Vec<String> {

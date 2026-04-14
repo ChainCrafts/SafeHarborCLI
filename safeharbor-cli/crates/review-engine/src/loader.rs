@@ -9,12 +9,10 @@ use analyzer::{
 use anyhow::{Context, Result, bail};
 use serde::de::DeserializeOwned;
 use standards_recognizer::types::PersistedStandardsRecognition;
-use std::{
-    io::Write,
-    path::{Path, PathBuf},
-    process::{Command, Stdio},
-};
+use std::path::{Path, PathBuf};
 use structural_extractor::PersistedStructuralCandidates;
+
+pub use manifest::sha256_file;
 
 #[derive(Debug, Clone)]
 pub struct ReviewContext {
@@ -62,12 +60,6 @@ pub fn load_review_context(request: ReviewRequest) -> Result<ReviewContext> {
 
 pub fn load_draft_compile_input(path: &Path) -> Result<DraftCompileInput> {
     read_json(path)
-}
-
-pub fn sha256_file(path: &Path) -> Result<String> {
-    let bytes = std::fs::read(path)
-        .with_context(|| format!("failed to read file for digest: {}", path.display()))?;
-    sha256_hex(&bytes).with_context(|| format!("failed to digest {}", path.display()))
 }
 
 fn read_json<T: DeserializeOwned>(path: &Path) -> Result<T> {
@@ -125,51 +117,4 @@ fn validate_artifact_metadata(
         );
     }
     Ok(())
-}
-
-fn sha256_hex(bytes: &[u8]) -> Result<String> {
-    if let Some(digest) = run_digest_command("sha256sum", &[], bytes)? {
-        return Ok(digest);
-    }
-    if let Some(digest) = run_digest_command("shasum", &["-a", "256"], bytes)? {
-        return Ok(digest);
-    }
-    if let Some(digest) = run_digest_command("openssl", &["dgst", "-sha256"], bytes)? {
-        return Ok(digest);
-    }
-
-    bail!("failed to compute sha256 digest: no supported digest command found")
-}
-
-fn run_digest_command(command: &str, args: &[&str], input: &[u8]) -> Result<Option<String>> {
-    let mut child = match Command::new(command)
-        .args(args)
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .spawn()
-    {
-        Ok(child) => child,
-        Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(None),
-        Err(err) => return Err(err.into()),
-    };
-
-    if let Some(stdin) = child.stdin.as_mut() {
-        stdin.write_all(input)?;
-    }
-
-    let output = child.wait_with_output()?;
-    if !output.status.success() {
-        return Ok(None);
-    }
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let digest = stdout
-        .split_whitespace()
-        .find(|token| token.len() == 64 && token.chars().all(|ch| ch.is_ascii_hexdigit()))
-        .unwrap_or_default();
-    if digest.is_empty() {
-        Ok(None)
-    } else {
-        Ok(Some(digest.to_ascii_lowercase()))
-    }
 }

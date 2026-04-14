@@ -3,15 +3,13 @@ use crate::{
     client::BattlechainClient,
     config::{BattlechainOverrides, WorkspaceArtifacts, resolve_network_config},
     errors::Result,
-    prepare::{
-        deployment_compatibility_checks, is_http_url, network_checks, read_manifest_file,
-        sha256_file,
-    },
+    prepare::{deployment_compatibility_checks, is_http_url, network_checks, read_manifest_file},
     types::{
         AgreementBinding, CheckGroup, CheckStatus, LifecycleSource, LifecycleValue, ReadinessCheck,
         ResolvedNetworkConfig,
     },
 };
+use manifest::sha256_file;
 use safeharbor_config::{BattlechainConfig, LoadedConfig};
 
 #[derive(Debug, Clone, PartialEq)]

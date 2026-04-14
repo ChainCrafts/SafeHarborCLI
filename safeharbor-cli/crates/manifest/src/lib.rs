@@ -1,7 +1,12 @@
 use anyhow::{Context, Result, bail};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::{fs, path::Path};
+use std::{
+    fs,
+    io::Write,
+    path::Path,
+    process::{Command, Stdio},
+};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -360,6 +365,26 @@ pub fn validate_file(manifest_path: &Path, schema_path: &Path) -> Result<()> {
     validate_instance(&instance, &schema_json)
 }
 
+pub fn sha256_file(path: &Path) -> Result<String> {
+    let bytes = fs::read(path)
+        .with_context(|| format!("failed to read file for digest: {}", path.display()))?;
+    sha256_hex(&bytes).with_context(|| format!("failed to digest {}", path.display()))
+}
+
+pub fn sha256_hex(bytes: &[u8]) -> Result<String> {
+    if let Some(digest) = run_digest_command("sha256sum", &[], bytes)? {
+        return Ok(digest);
+    }
+    if let Some(digest) = run_digest_command("shasum", &["-a", "256"], bytes)? {
+        return Ok(digest);
+    }
+    if let Some(digest) = run_digest_command("openssl", &["dgst", "-sha256"], bytes)? {
+        return Ok(digest);
+    }
+
+    bail!("failed to compute sha256 digest: no supported digest command found")
+}
+
 fn read_json_file(path: &Path, kind: &str) -> Result<Value> {
     serde_json::from_reader(
         fs::File::open(path)
@@ -381,6 +406,40 @@ fn validate_instance(instance: &Value, schema_json: &Value) -> Result<()> {
     }
 
     Ok(())
+}
+
+fn run_digest_command(command: &str, args: &[&str], input: &[u8]) -> Result<Option<String>> {
+    let mut child = match Command::new(command)
+        .args(args)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
+    {
+        Ok(child) => child,
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(err) => return Err(err.into()),
+    };
+
+    if let Some(stdin) = child.stdin.as_mut() {
+        stdin.write_all(input)?;
+    }
+
+    let output = child.wait_with_output()?;
+    if !output.status.success() {
+        return Ok(None);
+    }
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let digest = stdout
+        .split_whitespace()
+        .find(|token| token.len() == 64 && token.chars().all(|ch| ch.is_ascii_hexdigit()))
+        .unwrap_or_default();
+    if digest.is_empty() {
+        Ok(None)
+    } else {
+        Ok(Some(digest.to_ascii_lowercase()))
+    }
 }
 
 #[cfg(test)]
@@ -432,6 +491,20 @@ mod tests {
         let manifest = sample_manifest();
         let schema = schema_path();
         validate_manifest_schema(&manifest, &schema).unwrap();
+    }
+
+    #[test]
+    fn computes_stable_manifest_file_digest() {
+        let digest = sha256_file(
+            &PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join("../../examples/simple-vault/expected.safeharbor.manifest.json"),
+        )
+        .unwrap();
+
+        assert_eq!(
+            digest,
+            "674c0d3873ce664666da4fb5b0188d520c31c25e2b8a5649b52de588c8a4cb06"
+        );
     }
 
     #[test]

@@ -1,0 +1,13 @@
+[package]
+name = "battlechain-adapter"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+safeharbor-config = { package = "config", path = "../config" }
+manifest = { path = "../manifest" }
+reqwest.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true

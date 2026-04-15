@@ -2,6 +2,7 @@
 members = [
   "apps/cli",
   "crates/battlechain-adapter",
+  "crates/agent-sdk",
   "crates/config",
   "crates/manifest",
   "crates/compiler",

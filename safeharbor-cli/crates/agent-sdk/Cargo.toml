@@ -1,0 +1,12 @@
+[package]
+name = "agent-sdk"
+version.workspace = true
+edition.workspace = true
+
+[lib]
+name = "agent_sdk"
+
+[dependencies]
+manifest = { path = "../manifest" }
+serde_json.workspace = true
+thiserror.workspace = true

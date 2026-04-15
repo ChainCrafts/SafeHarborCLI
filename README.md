@@ -3,7 +3,6 @@
 ![Rust](https://img.shields.io/badge/built%20with-Rust-dea584)
 ![Foundry](https://img.shields.io/badge/Foundry-supported-222222)
 ![Version](https://img.shields.io/badge/version-v0.1.0-blue)
-![Status](https://img.shields.io/badge/status-v0.1.0-blue)
 ![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue)
 
 Protocol-aware Safe Harbor spec compiler for BattleChain.

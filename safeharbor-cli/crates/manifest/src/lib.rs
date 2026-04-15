@@ -8,6 +8,11 @@ use std::{
     process::{Command, Stdio},
 };
 
+const EMBEDDED_MANIFEST_SCHEMA: &str = include_str!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../../schemas/safeharbor.manifest.schema.json"
+));
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SafeHarborManifest {
@@ -358,6 +363,14 @@ pub fn validate_manifest_schema(manifest: &SafeHarborManifest, schema_path: &Pat
     validate_instance(&instance, &schema_json)
 }
 
+pub fn validate_manifest(manifest: &SafeHarborManifest) -> Result<()> {
+    let schema_json: Value = serde_json::from_str(EMBEDDED_MANIFEST_SCHEMA)
+        .context("failed to parse embedded manifest schema JSON")?;
+    let instance = serde_json::to_value(manifest).context("failed to convert manifest to JSON")?;
+
+    validate_instance(&instance, &schema_json)
+}
+
 pub fn validate_file(manifest_path: &Path, schema_path: &Path) -> Result<()> {
     let schema_json = read_json_file(schema_path, "schema")?;
     let instance = read_json_file(manifest_path, "manifest")?;
@@ -491,6 +504,13 @@ mod tests {
         let manifest = sample_manifest();
         let schema = schema_path();
         validate_manifest_schema(&manifest, &schema).unwrap();
+    }
+
+    #[test]
+    fn validates_good_manifest_against_embedded_schema() {
+        let manifest = sample_manifest();
+
+        validate_manifest(&manifest).unwrap();
     }
 
     #[test]

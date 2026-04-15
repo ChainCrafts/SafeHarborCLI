@@ -3,6 +3,27 @@ file = "examples/simple-vault/safeharbor.input.json"
 
 [output]
 manifest = "examples/simple-vault/out/safeharbor.manifest.json"
+summary = "examples/simple-vault/out/safeharbor.summary.md"
 
 [schema]
 file = "schemas/safeharbor.manifest.schema.json"
+
+[review]
+analysis_dir = "examples/foundry-simple-vault/.safeharbor/analysis"
+state_file = ".safeharbor/review/review-state.json"
+reviewed_input = ".safeharbor/review/reviewed-input.json"
+low_confidence_threshold = 75
+
+[scan]
+repo_root = "examples/foundry-simple-vault"
+output_dir = ".safeharbor/analysis"
+forge_bin = "forge"
+aderyn_bin = "examples/foundry-simple-vault/bin/mock-aderyn"
+cache = true
+
+[battlechain]
+network = "battlechain-testnet"
+chain_id = 627
+
+[registry]
+address = "0x1111111111111111111111111111111111111111"

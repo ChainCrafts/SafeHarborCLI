@@ -12,7 +12,7 @@ pub fn validate_draft_mappings(
     graph: &AnalysisGraph,
 ) -> Result<BTreeMap<String, String>> {
     if draft.analysis_contract_mappings.is_empty() {
-        bail!("reviewed compile requires analysis_contract_mappings in the draft input");
+        bail!("reviewed compile requires analysis_contract_mappings in the draft metadata input");
     }
 
     let source_contract_ids = graph

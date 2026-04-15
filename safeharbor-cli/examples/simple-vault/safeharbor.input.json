@@ -213,5 +213,11 @@
         }
       ]
     }
-  }
+  },
+  "analysis_contract_mappings": [
+    {
+      "manifest_contract_id": "vault_core",
+      "source_analysis_contract_id": "src/SimpleVault.sol:SimpleVault"
+    }
+  ]
 }

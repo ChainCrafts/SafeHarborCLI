@@ -8,6 +8,7 @@ use analyzer::{
 };
 use anyhow::{Context, Result, bail};
 use serde::de::DeserializeOwned;
+use serde_json::Value;
 use standards_recognizer::types::PersistedStandardsRecognition;
 use std::path::{Path, PathBuf};
 use structural_extractor::PersistedStructuralCandidates;
@@ -42,9 +43,9 @@ pub fn load_review_context(request: ReviewRequest) -> Result<ReviewContext> {
     validate_draft_mappings(&draft_input, &graph)?;
 
     let source_digests = SourceDigests {
-        analysis_graph: sha256_file(&request.analysis_graph_path)?,
-        structural_candidates: sha256_file(&request.structural_candidates_path)?,
-        standards_recognition: sha256_file(&request.standards_recognition_path)?,
+        analysis_graph: sha256_scan_artifact_canonical(&request.analysis_graph_path)?,
+        structural_candidates: sha256_scan_artifact_canonical(&request.structural_candidates_path)?,
+        standards_recognition: sha256_scan_artifact_canonical(&request.standards_recognition_path)?,
         draft_metadata: sha256_file(&request.draft_input_path)?,
     };
 
@@ -67,6 +68,25 @@ fn read_json<T: DeserializeOwned>(path: &Path) -> Result<T> {
         .with_context(|| format!("failed to read JSON file: {}", path.display()))?;
     serde_json::from_str(&raw)
         .with_context(|| format!("failed to parse JSON file: {}", path.display()))
+}
+
+fn sha256_scan_artifact_canonical(path: &Path) -> Result<String> {
+    let mut value: Value = read_json(path)?;
+    if let Some(metadata) = value.get_mut("metadata").and_then(Value::as_object_mut) {
+        metadata.remove("generated_at");
+    }
+    let bytes = serde_json::to_vec(&value).with_context(|| {
+        format!(
+            "failed to serialize canonical scan artifact for digest: {}",
+            path.display()
+        )
+    })?;
+    manifest::sha256_hex(&bytes).with_context(|| {
+        format!(
+            "failed to digest canonical scan artifact: {}",
+            path.display()
+        )
+    })
 }
 
 fn persisted_graph_to_graph(persisted: PersistedAnalysisGraph) -> AnalysisGraph {

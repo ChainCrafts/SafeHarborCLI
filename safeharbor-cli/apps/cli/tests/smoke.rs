@@ -4,7 +4,7 @@ use std::{
     io::{Read, Write},
     net::{TcpListener, TcpStream},
     path::{Path, PathBuf},
-    process::{Child, Command, Stdio},
+    process::{Child, Command, Output, Stdio},
     thread,
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
@@ -134,6 +134,21 @@ network = "battlechain-testnet"
 chain_id = 627
 rpc_url = "{rpc_url}"
 
+[registry]
+address = "{registry_address}"
+"#
+    )
+    .unwrap();
+}
+
+fn append_offline_registry_config(root: &Path, registry_address: &str) {
+    let mut file = fs::OpenOptions::new()
+        .append(true)
+        .open(root.join("safeharbor.toml"))
+        .unwrap();
+    writeln!(
+        file,
+        r#"
 [registry]
 address = "{registry_address}"
 "#
@@ -339,6 +354,10 @@ fn extract_output_value(stdout: &[u8], prefix: &str) -> String {
         .find_map(|line| line.trim().strip_prefix(prefix))
         .unwrap_or_else(|| panic!("failed to find '{prefix}' in output:\n{stdout}"))
         .to_string()
+}
+
+fn assert_success(output: &Output) {
+    assert!(output.status.success(), "{output:#?}");
 }
 
 fn send_raw_calldata(rpc_url: &str, to: &str, calldata: &str) {
@@ -554,6 +573,13 @@ fn cli_registry_publish_prepares_and_verifies_local_publication() {
         publish_stdout.contains("readback     : no publication"),
         "{publish_stdout}"
     );
+    assert!(root.join(".safeharbor/registry/publish.json").exists());
+    let publish_artifact: Value = serde_json::from_str(
+        &fs::read_to_string(root.join(".safeharbor/registry/publish.json")).unwrap(),
+    )
+    .unwrap();
+    assert_eq!(publish_artifact["schemaVersion"], "registry_publish/v1");
+    assert_eq!(publish_artifact["readback"]["status"], "no_publication");
     let calldata = extract_calldata(&publish.stdout);
     let manifest_hash = extract_output_value(&publish.stdout, "manifest hash: ");
 
@@ -582,6 +608,191 @@ fn cli_registry_publish_prepares_and_verifies_local_publication() {
     assert!(
         verify_stdout.contains(&format!("manifest hash: {manifest_hash}")),
         "{verify_stdout}"
+    );
+    let verify_artifact: Value = serde_json::from_str(
+        &fs::read_to_string(root.join(".safeharbor/registry/publish.json")).unwrap(),
+    )
+    .unwrap();
+    assert_eq!(verify_artifact["schemaVersion"], "registry_publish/v1");
+    assert_eq!(verify_artifact["readback"]["status"], "match");
+    assert_eq!(
+        verify_artifact["readback"]["current"]["manifestUri"],
+        manifest_uri
+    );
+
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn cli_sample_workflow_outputs_are_deterministic() {
+    let root = unique_temp_dir();
+    let fixture = foundry_fixture_dir();
+    copy_dir(&fixture, &root);
+    chmod_executable(&root.join("bin/mock-aderyn"));
+    write_review_compile_workspace(&root);
+    append_offline_registry_config(&root, "0x1111111111111111111111111111111111111111");
+
+    let config_path = root.join("safeharbor.toml");
+    let manifest_path = root.join("examples/simple-vault/out/safeharbor.manifest.json");
+    let summary_path = root.join("examples/simple-vault/out/safeharbor.summary.md");
+    let reviewed_input_path = root.join(".safeharbor/review/reviewed-input.json");
+    let battlechain_prepare_path = root.join(".safeharbor/battlechain/prepare.json");
+    let registry_publish_path = root.join(".safeharbor/registry/publish.json");
+    let manifest_uri = "ipfs://bafy-safeharbor-smoke";
+
+    for _ in 0..2 {
+        let scan = Command::new(env!("CARGO_BIN_EXE_shcli"))
+            .current_dir(&root)
+            .arg("scan")
+            .arg("--config")
+            .arg(&config_path)
+            .output()
+            .unwrap();
+        assert_success(&scan);
+
+        let review = Command::new(env!("CARGO_BIN_EXE_shcli"))
+            .current_dir(&root)
+            .arg("review")
+            .arg("--config")
+            .arg(&config_path)
+            .arg("--approve-defaults")
+            .output()
+            .unwrap();
+        assert_success(&review);
+
+        let compile = Command::new(env!("CARGO_BIN_EXE_shcli"))
+            .current_dir(&root)
+            .arg("compile")
+            .arg("--config")
+            .arg(&config_path)
+            .output()
+            .unwrap();
+        assert_success(&compile);
+
+        let prepare = Command::new(env!("CARGO_BIN_EXE_shcli"))
+            .current_dir(&root)
+            .arg("battlechain")
+            .arg("prepare")
+            .arg("--config")
+            .arg(&config_path)
+            .output()
+            .unwrap();
+        assert_success(&prepare);
+
+        let publish = Command::new(env!("CARGO_BIN_EXE_shcli"))
+            .current_dir(&root)
+            .arg("registry")
+            .arg("publish")
+            .arg("--config")
+            .arg(&config_path)
+            .arg("--manifest-uri")
+            .arg(manifest_uri)
+            .output()
+            .unwrap();
+        assert_success(&publish);
+    }
+
+    assert!(
+        root.join(".safeharbor/analysis/analysis.graph.json")
+            .exists()
+    );
+    assert!(
+        root.join(".safeharbor/analysis/structural-candidates.json")
+            .exists()
+    );
+    assert!(
+        root.join(".safeharbor/analysis/standards-recognition.json")
+            .exists()
+    );
+    assert!(root.join(".safeharbor/review/review-state.json").exists());
+    assert!(reviewed_input_path.exists());
+    assert!(manifest_path.exists());
+    assert!(summary_path.exists());
+    assert!(battlechain_prepare_path.exists());
+    assert!(registry_publish_path.exists());
+
+    let manifest_first = fs::read_to_string(&manifest_path).unwrap();
+    let summary_first = fs::read_to_string(&summary_path).unwrap();
+    let reviewed_first = fs::read_to_string(&reviewed_input_path).unwrap();
+    let battlechain_first = fs::read_to_string(&battlechain_prepare_path).unwrap();
+    let registry_first = fs::read_to_string(&registry_publish_path).unwrap();
+    let analysis_first = scrub_generated_at(&root.join(".safeharbor/analysis/analysis.graph.json"));
+    let structural_first =
+        scrub_generated_at(&root.join(".safeharbor/analysis/structural-candidates.json"));
+    let recognition_first =
+        scrub_generated_at(&root.join(".safeharbor/analysis/standards-recognition.json"));
+
+    let scan = Command::new(env!("CARGO_BIN_EXE_shcli"))
+        .current_dir(&root)
+        .arg("scan")
+        .arg("--config")
+        .arg(&config_path)
+        .output()
+        .unwrap();
+    assert_success(&scan);
+    let review = Command::new(env!("CARGO_BIN_EXE_shcli"))
+        .current_dir(&root)
+        .arg("review")
+        .arg("--config")
+        .arg(&config_path)
+        .arg("--approve-defaults")
+        .output()
+        .unwrap();
+    assert_success(&review);
+    let compile = Command::new(env!("CARGO_BIN_EXE_shcli"))
+        .current_dir(&root)
+        .arg("compile")
+        .arg("--config")
+        .arg(&config_path)
+        .output()
+        .unwrap();
+    assert_success(&compile);
+    let prepare = Command::new(env!("CARGO_BIN_EXE_shcli"))
+        .current_dir(&root)
+        .arg("battlechain")
+        .arg("prepare")
+        .arg("--config")
+        .arg(&config_path)
+        .output()
+        .unwrap();
+    assert_success(&prepare);
+    let publish = Command::new(env!("CARGO_BIN_EXE_shcli"))
+        .current_dir(&root)
+        .arg("registry")
+        .arg("publish")
+        .arg("--config")
+        .arg(&config_path)
+        .arg("--manifest-uri")
+        .arg(manifest_uri)
+        .output()
+        .unwrap();
+    assert_success(&publish);
+
+    assert_eq!(manifest_first, fs::read_to_string(&manifest_path).unwrap());
+    assert_eq!(summary_first, fs::read_to_string(&summary_path).unwrap());
+    assert_eq!(
+        reviewed_first,
+        fs::read_to_string(&reviewed_input_path).unwrap()
+    );
+    assert_eq!(
+        battlechain_first,
+        fs::read_to_string(&battlechain_prepare_path).unwrap()
+    );
+    assert_eq!(
+        registry_first,
+        fs::read_to_string(&registry_publish_path).unwrap()
+    );
+    assert_eq!(
+        analysis_first,
+        scrub_generated_at(&root.join(".safeharbor/analysis/analysis.graph.json"))
+    );
+    assert_eq!(
+        structural_first,
+        scrub_generated_at(&root.join(".safeharbor/analysis/structural-candidates.json"))
+    );
+    assert_eq!(
+        recognition_first,
+        scrub_generated_at(&root.join(".safeharbor/analysis/standards-recognition.json"))
     );
 
     fs::remove_dir_all(root).unwrap();

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 pragma solidity ^0.8.26;
 
 import {SafeHarborManifestRegistry} from "../src/SafeHarborManifestRegistry.sol";

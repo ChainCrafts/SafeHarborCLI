@@ -4,15 +4,20 @@ use battlechain_adapter::{
 };
 use manifest::{SafeHarborManifest, read_manifest, sha256_file};
 use safeharbor_config::LoadedConfig;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
-use std::{fmt, path::PathBuf, time::Duration};
+use std::{
+    fmt, fs,
+    path::{Path, PathBuf},
+    time::Duration,
+};
 use thiserror::Error;
 
 pub type Result<T> = std::result::Result<T, RegistryError>;
 
 const PUBLISH_SIGNATURE: &str = "publish(address,bytes32,string)";
 const CURRENT_PUBLICATION_SIGNATURE: &str = "currentPublication(address)";
+pub const REGISTRY_PUBLISH_SCHEMA_VERSION: &str = "registry_publish/v1";
 
 #[derive(Debug, Error)]
 pub enum RegistryError {
@@ -78,6 +83,20 @@ pub enum RegistryError {
     #[error("registry RPC URL is not http(s): {0}")]
     InvalidRpcUrl(String),
 
+    #[error("failed to create {kind} directory {path}: {source}")]
+    CreateDir {
+        kind: &'static str,
+        path: PathBuf,
+        source: std::io::Error,
+    },
+
+    #[error("failed to write {kind} {path}: {source}")]
+    Write {
+        kind: &'static str,
+        path: PathBuf,
+        source: std::io::Error,
+    },
+
     #[error("{0}")]
     Abi(String),
 
@@ -114,6 +133,43 @@ pub struct PreparedPublish {
     pub readback: Option<ReadbackReport>,
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RegistryPublishArtifact {
+    pub schema_version: String,
+    pub manifest_path: String,
+    pub manifest_digest: String,
+    pub manifest_hash: String,
+    pub manifest_uri: String,
+    pub agreement_address: String,
+    pub registry_address: String,
+    pub network: ResolvedNetworkConfig,
+    pub publish_calldata: String,
+    pub readback_calldata: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub remote_chain_id: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub readback: Option<RegistryReadbackArtifact>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RegistryReadbackArtifact {
+    pub status: ReadbackStatus,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub current: Option<PublicationArtifact>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PublicationArtifact {
+    pub agreement: String,
+    pub manifest_hash: String,
+    pub manifest_uri: String,
+    pub publisher: String,
+    pub published_at: u64,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PublicationRecord {
     pub agreement: String,
@@ -124,7 +180,8 @@ pub struct PublicationRecord {
     pub published_at: u64,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum ReadbackStatus {
     NoPublication,
     Match,
@@ -340,6 +397,73 @@ pub fn prepare_registry_publish(
         remote_chain_id,
         readback,
     })
+}
+
+pub fn registry_publish_artifact_path(loaded: &LoadedConfig) -> PathBuf {
+    loaded
+        .workspace_root
+        .join(".safeharbor/registry/publish.json")
+}
+
+pub fn registry_publish_artifact(prepared: &PreparedPublish) -> RegistryPublishArtifact {
+    RegistryPublishArtifact {
+        schema_version: REGISTRY_PUBLISH_SCHEMA_VERSION.to_string(),
+        manifest_path: prepared.manifest_display_path.clone(),
+        manifest_digest: prepared.manifest_digest.clone(),
+        manifest_hash: prepared.manifest_hash_hex.clone(),
+        manifest_uri: prepared.manifest_uri.clone(),
+        agreement_address: prepared.agreement_address.clone(),
+        registry_address: prepared.registry_address.clone(),
+        network: prepared.network.clone(),
+        publish_calldata: prepared.calldata.clone(),
+        readback_calldata: prepared.readback_calldata.clone(),
+        remote_chain_id: prepared.remote_chain_id,
+        readback: prepared.readback.as_ref().map(readback_artifact),
+    }
+}
+
+pub fn write_registry_publish_artifact(
+    path: &Path,
+    prepared: &PreparedPublish,
+) -> Result<RegistryPublishArtifact> {
+    let artifact = registry_publish_artifact(prepared);
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).map_err(|source| RegistryError::CreateDir {
+            kind: "registry publish artifact",
+            path: parent.to_path_buf(),
+            source,
+        })?;
+    }
+
+    let json = serde_json::to_string_pretty(&artifact).map_err(|err| {
+        RegistryError::Abi(format!(
+            "failed to serialize registry publish artifact: {err}"
+        ))
+    })?;
+    fs::write(path, format!("{json}\n")).map_err(|source| RegistryError::Write {
+        kind: "registry publish artifact",
+        path: path.to_path_buf(),
+        source,
+    })?;
+
+    Ok(artifact)
+}
+
+fn readback_artifact(report: &ReadbackReport) -> RegistryReadbackArtifact {
+    RegistryReadbackArtifact {
+        status: report.status,
+        current: report.current.as_ref().map(publication_artifact),
+    }
+}
+
+fn publication_artifact(record: &PublicationRecord) -> PublicationArtifact {
+    PublicationArtifact {
+        agreement: record.agreement.clone(),
+        manifest_hash: format!("sha256:{}", record.manifest_hash_hex),
+        manifest_uri: record.manifest_uri.clone(),
+        publisher: record.publisher.clone(),
+        published_at: record.published_at,
+    }
 }
 
 pub fn compare_publication(
@@ -1274,6 +1398,44 @@ address = "0x1111111111111111111111111111111111111111"
         assert_eq!(prepared.readback.unwrap().status, ReadbackStatus::Match);
         assert_eq!(prepared.remote_chain_id, Some(627));
         assert_eq!(prepared.network.chain_id_source, ValueSource::Config);
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn writes_deterministic_publish_artifact_without_rpc() {
+        let root = unique_temp_dir();
+        write_workspace(&root, true, true);
+        let loaded = load_config(&root.join("safeharbor.toml")).unwrap();
+        let path = registry_publish_artifact_path(&loaded);
+
+        let prepared = prepare_registry_publish(
+            &loaded,
+            "ipfs://manifest",
+            &RegistryOverrides::default(),
+            &NoopClient,
+        )
+        .unwrap();
+
+        let first = write_registry_publish_artifact(&path, &prepared).unwrap();
+        let first_bytes = fs::read_to_string(&path).unwrap();
+        let second = write_registry_publish_artifact(&path, &prepared).unwrap();
+        let second_bytes = fs::read_to_string(&path).unwrap();
+
+        assert_eq!(first, second);
+        assert_eq!(first_bytes, second_bytes);
+        assert_eq!(first.schema_version, REGISTRY_PUBLISH_SCHEMA_VERSION);
+        assert_eq!(first.manifest_path, "out/safeharbor.manifest.json");
+        assert_eq!(
+            first.manifest_digest,
+            "sha256:674c0d3873ce664666da4fb5b0188d520c31c25e2b8a5649b52de588c8a4cb06"
+        );
+        assert_eq!(
+            first.registry_address,
+            "0x1111111111111111111111111111111111111111"
+        );
+        assert!(first.remote_chain_id.is_none());
+        assert!(first.readback.is_none());
 
         fs::remove_dir_all(root).unwrap();
     }

@@ -12,6 +12,7 @@ use compiler::compile_reviewed_input;
 use manifest::validate_file;
 use registry::{
     HttpRegistryRpcClient, ReadbackStatus, RegistryOverrides, prepare_registry_publish,
+    registry_publish_artifact_path, write_registry_publish_artifact,
 };
 use review_engine::{ApproveDefaultsPrompter, ReviewRequest, TerminalReviewPrompter, run_review};
 use standards_recognizer::{persisted_standards_recognition, recognize_standards};
@@ -49,10 +50,10 @@ enum Commands {
         command: RegistryCommands,
     },
 
-    /// Emit a Safe Harbor manifest from static input
+    /// Emit a Safe Harbor manifest from draft metadata input and reviewed input
     Compile(CompileArgs),
 
-    /// Review scan candidates and emit reviewed compiler input
+    /// Review scan candidates and emit reviewed input
     Review(ReviewArgs),
 
     /// Validate a manifest against the schema
@@ -94,7 +95,7 @@ struct ScanArgs {
 
 #[derive(Args, Debug)]
 struct CompileArgs {
-    /// Path to Safe Harbor config file for reviewed input emission
+    /// Path to Safe Harbor config file for manifest emission.
     #[arg(long, default_value = "safeharbor.toml")]
     config: PathBuf,
 }
@@ -259,8 +260,11 @@ fn main() -> Result<()> {
 
             println!("Emitted manifest successfully");
             println!("  config      : {}", cfg.config_path.display());
-            println!("  draft input : {}", settings.input_file.display());
-            println!("  reviewed    : {}", settings.reviewed_input_file.display());
+            println!("  draft metadata input: {}", settings.input_file.display());
+            println!(
+                "  reviewed input      : {}",
+                settings.reviewed_input_file.display()
+            );
             println!("  schema      : {}", settings.schema_file.display());
             println!("  manifest out: {}", settings.manifest_output.display());
             println!("  summary out : {}", settings.summary_output.display());
@@ -296,9 +300,12 @@ fn registry_publish_command(args: RegistryPublishArgs) -> Result<()> {
         },
         &client,
     )?;
+    let artifact_path = registry_publish_artifact_path(&cfg);
+    write_registry_publish_artifact(&artifact_path, &prepared)?;
 
     println!("Registry publish prepared");
     println!("  config       : {}", cfg.config_path.display());
+    println!("  artifact     : {}", artifact_path.display());
     println!("  manifest     : {}", prepared.manifest_display_path);
     println!("  agreement    : {}", prepared.agreement_address);
     println!("  registry     : {}", prepared.registry_address);

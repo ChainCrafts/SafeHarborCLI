@@ -58,7 +58,7 @@ fn docs_cover_current_v01_operator_path_and_artifacts() {
         ".safeharbor/battlechain/prepare.json",
         ".safeharbor/registry/publish.json",
         "metadata.generated_at",
-        "0.1.0 Release Candidate",
+        "0.1.0",
     ] {
         assert!(
             text.contains(required),

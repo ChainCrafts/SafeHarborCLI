@@ -1,25 +1,22 @@
 # BattleChain Adapter Requirements
 
-The BattleChain binding in V1 is explicit, deployment-aware, and post-compile.
+The BattleChain binding in v0.1 is explicit, deployment-aware, and post-compile.
 
-BattleChain metadata lives under `adapters.battlechain`, not as a core-defining top-level block.
+BattleChain metadata lives under `adapters.battlechain`, not as a required top-level manifest block. A compiled manifest can be valid without BattleChain adapter metadata.
 
-`shcli compile` can emit a valid manifest with no `adapters` block at all.
-
-`shcli battlechain prepare`, `shcli battlechain create-agreement`, and `shcli battlechain request-attack` are the lifecycle steps that validate or attach BattleChain-specific linkage after review and compile.
+## Manifest Inputs
 
 `deployment` must identify:
 
-- target `chainId`
-- human-readable `network`
-- one or more deployed contracts with `name`, `address`, `abiRef`, `bytecodeDigestAlgo`, and `bytecodeHash`
+- `chainId`
+- `network`
+- deployed contract `name`
+- deployed contract `address`
+- `abiRef`
+- `bytecodeDigestAlgo`
+- `bytecodeHash`
 
-V1 freezes deployment bytecode binding to:
-
-- `bytecodeDigestAlgo = keccak256`
-- `bytecodeHash` as a 32-byte hex digest
-
-When a manifest is BattleChain-linked, `adapters.battlechain` must identify:
+When a manifest is BattleChain-linked, `adapters.battlechain` may identify:
 
 - `agreementAddress`
 - `lifecycleState`
@@ -27,20 +24,47 @@ When a manifest is BattleChain-linked, `adapters.battlechain` must identify:
 - `recoveryAddress`
 - `commitmentWindowDays`
 
-This lets a manifest bind reviewed source analysis to a specific deployment surface and the agreement metadata that governs the BattleChain bounty lifecycle without making BattleChain core-defining schema baggage.
+These fields bind reviewed manifest content to BattleChain agreement metadata without making BattleChain the core manifest standard.
 
-Attack execution constraints live under `scope.attackFlow`:
+## Implemented Adapter Commands
 
-- `allowedModes`: a non-empty set of `single_tx`, `multi_tx`, and `multi_block`
+`shcli battlechain prepare`
 
-This replaces the old contradictory `mode + multiTxAllowed + multiBlockAllowed` shape.
+- Consumes the compiled manifest.
+- Resolves BattleChain network/config values.
+- Writes `.safeharbor/battlechain/prepare.json`.
+- Emits readiness checks and next steps.
+- Does not submit transactions.
 
-`allowedModes` means the exploit-execution modes that are in scope for accepted evidence against the manifest revision. A report that depends on a mode outside this set is outside the accepted attack-flow scope for that manifest.
+`shcli status`
 
-Operationally:
+- Shows local agreement linkage and lifecycle state.
+- Uses RPC reads only when `[battlechain].rpc_url` or `--rpc-url` is present.
+- Falls back to local adapter metadata when remote state is unavailable.
 
-- `battlechain prepare` should fail fast on deployment or network mismatches
-- `battlechain create-agreement` should only run once compile output and deployment prerequisites are ready
-- `battlechain request-attack` should require both a compiled manifest and `adapters.battlechain` linkage
+`shcli doctor`
 
-The exact `lifecycleState` vocabulary remains BattleChain adapter data rather than a SafeHarbor core-standard concern in V1.
+- Checks local artifacts, network config, adapter metadata, and optional remote connectivity.
+- Prints path-bearing failures and fix hints.
+- Exits non-zero when failing checks are present.
+
+## Registry Boundary
+
+`shcli registry publish` is separate from BattleChain lifecycle checks.
+
+- Registry config lives under `[registry]`.
+- Registry publish output lives at `.safeharbor/registry/publish.json`.
+- Registry publish prepares calldata and optional readback verification only.
+- Signers, owner authorization, and transaction submission are outside v0.1 scope.
+
+## Attack Flow Scope
+
+Attack execution constraints live under `scope.attackFlow.allowedModes`.
+
+Allowed values are:
+
+- `single_tx`
+- `multi_tx`
+- `multi_block`
+
+A report that depends on a mode outside the manifest's allowed modes is outside the accepted attack-flow scope for that manifest revision.

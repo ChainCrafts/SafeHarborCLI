@@ -1,137 +1,78 @@
 # Manifest Command Model
 
-V1 freezes SafeHarbor CLI as a workflow, not a loose bag of commands.
+SafeHarbor CLI v0.1 is a workflow around the manifest, not a broad lifecycle shell.
 
-The happy path is:
+The implemented operator path is:
 
-`init -> scan -> review -> compile -> battlechain prepare -> battlechain create-agreement -> battlechain request-attack`
+```sh
+shcli scan --config safeharbor.toml
+shcli review --config safeharbor.toml --approve-defaults
+shcli compile --config safeharbor.toml
+shcli battlechain prepare --config safeharbor.toml
+shcli status --config safeharbor.toml
+shcli doctor --config safeharbor.toml
+shcli registry publish --config safeharbor.toml --manifest-uri ipfs://...
+```
 
-This is the default operator path the rest of the docs should assume.
+Agent consumers read the compiled manifest through `crates/agent-sdk`.
 
-## Stable V1 Commands
-
-`shcli init`
-
-- creates `safeharbor.toml`
-- creates a draft workspace
-- creates empty review state
-- does not emit a compiled manifest
+## Implemented Commands
 
 `shcli scan`
 
-- runs structural analysis
-- writes normalized analysis output
-- writes selector surfaces and special entrypoint surfaces
-- writes payable boundary metadata
-- writes role and access candidates
-- writes standards and template recognitions
-- does not finalize semantic claims
+- Requires a Foundry repo.
+- Runs `forge build` and Aderyn.
+- Writes advisory scan-family artifacts under `.safeharbor/analysis/`.
+- Does not finalize scope, roles, or invariants.
 
 `shcli review`
 
-- is the mandatory human approval and edit boundary
-- must allow include and exclude surface decisions
-- must allow access classification edits as `permissionless`, `role_gated`, or `unknown`
-- must allow role ID curation
-- must allow approving, rejecting, or rewriting invariant candidates in workspace state
-- must allow severity assignment
-- must allow evidence requirement selection
-- must allow attack-flow marking
+- Reads scan-family artifacts plus the draft metadata input.
+- Writes review state and reviewed input under `.safeharbor/review/`.
+- `--approve-defaults` is the non-interactive path used by the sample workflow.
 
 `shcli compile`
 
-- validates reviewed workspace state
-- emits `safeharbor.manifest.json`
-- emits `safeharbor.summary.md`
-- emits only finalized scope, roles, invariants, evidence, and adapter linkage
-- is the first step in the happy path that emits the canonical manifest artifact
-- the Phase 0 handwritten target artifact is `safeharbor-cli/examples/simple-vault/expected.safeharbor.manifest.json` with companion summary `safeharbor-cli/examples/simple-vault/expected.summary.md`
+- Reads the draft metadata input and reviewed input.
+- Writes the canonical final manifest JSON and summary markdown.
+- Validates the manifest against `schemas/safeharbor.manifest.schema.json`.
 
 `shcli battlechain prepare`
 
-- creates BattleChain-ready adapter metadata
-- checks BattleChain prerequisites
-
-`shcli battlechain create-agreement`
-
-- builds or assists agreement payload creation
-
-`shcli battlechain request-attack`
-
-- checks manifest and agreement readiness
-- prepares the request flow
+- Reads compiled manifest output and local config.
+- Writes `.safeharbor/battlechain/prepare.json`.
+- Checks local artifact readiness and BattleChain adapter metadata.
+- Does not send transactions.
 
 `shcli status`
 
-- shows manifest revision
-- shows agreement linkage
-- shows lifecycle state
-- shows scope digest
+- Reads local manifest/config and optional RPC state.
+- Prints a compact BattleChain lifecycle view.
 
 `shcli doctor`
 
-- checks missing config
-- checks stale artifact refs
-- checks bytecode mismatch
-- checks chain and network mismatch
-- checks missing completed review
+- Reads local manifest/config and optional RPC state.
+- Prints grouped readiness checks and fails when checks have failures.
 
-`shcli export`
+`shcli registry publish`
 
-- exports agent-facing bundles
-- exports human summaries
-- exports artifacts intended for later IPFS packaging
+- Reads the compiled manifest and registry config.
+- Writes `.safeharbor/registry/publish.json`.
+- Prints calldata and optional readback status when an RPC URL is configured.
+- Does not sign or submit transactions.
+
+`shcli validate`
+
+- Validates a manifest JSON file against the configured or explicit schema.
 
 ## State Boundaries
 
-`init`, `scan`, and `review` operate on workspace state.
+Workspace state can contain rejected candidates, unresolved review state, and raw analyzer output.
 
-That workspace is allowed to contain:
-
-- unresolved access classifications
-- rejected invariant candidates
-- edited-but-not-finalized review objects
-- raw recognitions and analyzer output
-
-The compiled manifest schema does not represent that workspace state.
-
-`compile` is the transition from workspace review data to the canonical manifest artifact. The compiled manifest is agent-facing output and should contain accepted information only.
-
-That means:
+The compiled manifest is the canonical boundary:
 
 - rejected candidates do not ship
-- unresolved review garbage does not ship
-- role assumptions that matter to security must have been turned into accepted invariants before compile
+- raw recognitions do not ship as accepted facts
+- reviewed scope, roles, invariants, evidence, review, provenance, and adapter linkage do ship
 
-The BattleChain subcommands are post-compile lifecycle steps. They consume compiled scope and review output rather than replacing the review boundary.
-
-## Compiled Manifest Semantics
-
-The compiled manifest is a versioned contract.
-
-V1 top-level fields are:
-
-- `schemaVersion`
-- `manifestRevision`
-- `manifestStatus`
-- `protocol`
-- `source`
-- `deployment`
-- `adapters`
-- `scope`
-- `roles`
-- `invariants`
-- `evidence`
-- `review`
-- `provenance`
-
-The important V1 decisions are:
-
-- `schemaVersion` is the schema contract version
-- `manifestRevision` is the monotonic revision number for repeated updates to the same logical manifest
-- `manifestStatus` is frozen to `final` for compiled output
-- `roles` is always present, even when empty
-- `invariants` carries accepted invariants only and no candidate-level status field
-- `review` records completed human approval metadata only
-
-Workspace drafts, imports, and partial review exports may exist, but they are not the canonical compiled manifest shape and should not reuse the final-manifest semantics carelessly.
+BattleChain and registry artifacts are post-compile operational artifacts. They consume the manifest; they do not replace review or compile.
